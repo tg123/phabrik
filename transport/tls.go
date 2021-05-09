@@ -1,0 +1,117 @@
+package transport
+
+import (
+	"bytes"
+	"crypto/tls"
+	"net"
+	"sync"
+	"time"
+)
+
+type fabricSecureConn struct {
+	rawconn            net.Conn
+	rwlock             sync.RWMutex
+	handshakeCompleted bool
+	negoSend           bool
+	rbuf               bytes.Buffer
+	mf                 *messageFactory
+	frameRCfg          frameReadConfig
+	frameWCfg          frameWriteConfig
+}
+
+func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
+	rawssl := &fabricSecureConn{
+		rawconn: conn,
+		mf:      mf,
+	}
+	rawssl.frameWCfg.SecurityProviderMask = securityProviderSsl
+	sslconn := tls.Client(rawssl, tlsconf)
+
+	if err := sslconn.Handshake(); err != nil {
+		return nil, err
+	}
+
+	rawssl.markHandshakeComplete()
+
+	return sslconn, nil
+}
+
+func (c *fabricSecureConn) handshakeComplete() bool {
+	c.rwlock.RLock()
+	defer c.rwlock.RUnlock()
+	return c.handshakeCompleted
+}
+
+func (c *fabricSecureConn) markHandshakeComplete() {
+	c.rwlock.Lock()
+	defer c.rwlock.Unlock()
+	c.handshakeCompleted = true
+}
+
+func (c *fabricSecureConn) Read(b []byte) (n int, err error) {
+	if c.rbuf.Len() > 0 {
+		return c.rbuf.Read(b)
+	} else if !c.handshakeComplete() {
+		tcpheader, tcpbody, err := nextTCPFrame(c.rawconn, c.frameRCfg)
+		if err != nil {
+			return 0, err
+		}
+
+		if _, err := c.rbuf.Write(tcpbody[tcpheader.HeaderLength:]); err != nil {
+			return 0, err
+		}
+
+		return c.rbuf.Read(b)
+	} else {
+		return c.rawconn.Read(b)
+	}
+}
+
+func (c *fabricSecureConn) Write(b []byte) (n int, err error) {
+	if !c.handshakeComplete() {
+		msg := c.mf.newMessage()
+		msg.Headers.Actor = MessageActorTypeSecurityContext
+		msg.Body = b
+
+		if !c.negoSend {
+			msg.Headers.customHeaders[MessageHeaderIdTypeSecurityNegotiation] = &SecurityNegotiationHeader{
+				X509ExtraFramingEnabled:  true,
+				FramingProtectionEnabled: true, // here must be true to work on both windows and linux
+			}
+		}
+
+		if writeMessageWithTCPFrame(c.rawconn, msg, c.frameWCfg); err != nil {
+			return 0, err
+		}
+
+		c.negoSend = true
+
+		return len(b), nil
+	} else {
+		return c.rawconn.Write(b)
+	}
+}
+
+func (c *fabricSecureConn) Close() error {
+	return c.rawconn.Close()
+}
+
+func (c *fabricSecureConn) LocalAddr() net.Addr {
+	return c.rawconn.LocalAddr()
+}
+
+func (c *fabricSecureConn) RemoteAddr() net.Addr {
+	return c.rawconn.RemoteAddr()
+}
+
+func (c *fabricSecureConn) SetDeadline(t time.Time) error {
+	return c.rawconn.SetDeadline(t)
+}
+
+func (c *fabricSecureConn) SetReadDeadline(t time.Time) error {
+	return c.rawconn.SetReadDeadline(t)
+}
+
+func (c *fabricSecureConn) SetWriteDeadline(t time.Time) error {
+	return c.rawconn.SetWriteDeadline(t)
+}
