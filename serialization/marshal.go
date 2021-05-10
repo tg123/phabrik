@@ -74,7 +74,7 @@ func (s *encodeState) objectScopeEnd() error {
 	return nil
 }
 
-func intKindToFabricSerializationType(kind reflect.Kind) FabricSerializationType {
+func kindToFabricSerializationType(kind reflect.Kind) FabricSerializationType {
 	switch kind {
 	case reflect.Uint8:
 		return FabricSerializationTypeUChar
@@ -92,6 +92,16 @@ func intKindToFabricSerializationType(kind reflect.Kind) FabricSerializationType
 		return FabricSerializationTypeInt32
 	case reflect.Int64:
 		return FabricSerializationTypeInt64
+	case reflect.Float32, reflect.Float64:
+		return FabricSerializationTypeDouble
+	case reflect.Bool:
+		return FabricSerializationTypeBool
+	case reflect.String:
+		return FabricSerializationTypeWString
+	case reflect.Struct:
+		return FabricSerializationTypeObject
+	case reflect.Ptr:
+		return FabricSerializationTypePointer
 	default:
 	}
 
@@ -114,13 +124,15 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 
 	case reflect.Uint8, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Int16, reflect.Int32, reflect.Int64:
 
-		basetyp := intKindToFabricSerializationType(rv.Kind())
+		basetyp := kindToFabricSerializationType(rv.Kind())
 
 		if basetyp == FabricSerializationTypeNotAMeta {
 			return fmt.Errorf("bad base type meta")
 		}
 
 		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | basetyp)
+	case reflect.Float32, reflect.Float64:
+		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeDouble)
 	case reflect.String:
 		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeArray | FabricSerializationTypeWString)
 	case reflect.Ptr:
@@ -132,7 +144,7 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 		case reflect.Struct:
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeObject)
 		case reflect.Uint8, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Int16, reflect.Int32, reflect.Int64:
-			basetyp := intKindToFabricSerializationType(rv.Kind())
+			basetyp := kindToFabricSerializationType(rv.Kind())
 
 			if basetyp == FabricSerializationTypeNotAMeta {
 				return fmt.Errorf("bad base type meta")
@@ -176,7 +188,7 @@ func (s *encodeState) value(rv reflect.Value) error {
 		return binary.Write(s.buf, binary.LittleEndian, uint8(rv.Uint()))
 
 	case reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		basetyp := intKindToFabricSerializationType(rv.Kind())
+		basetyp := kindToFabricSerializationType(rv.Kind())
 
 		if basetyp == FabricSerializationTypeNotAMeta {
 			return fmt.Errorf("bad base type meta")
@@ -189,7 +201,7 @@ func (s *encodeState) value(rv reflect.Value) error {
 
 		return s.writeCompressedUnsigned(int(rv.Type().Size()), rv.Uint())
 	case reflect.Int16, reflect.Int32, reflect.Int64:
-		basetyp := intKindToFabricSerializationType(rv.Kind())
+		basetyp := kindToFabricSerializationType(rv.Kind())
 
 		if basetyp == FabricSerializationTypeNotAMeta {
 			return fmt.Errorf("bad base type meta")
@@ -201,6 +213,12 @@ func (s *encodeState) value(rv reflect.Value) error {
 		}
 
 		return s.writeCompressedSigned(int(rv.Type().Size()), rv.Int())
+	case reflect.Float32, reflect.Float64:
+		if err := s.writeTypeMeta(FabricSerializationTypeDouble); err != nil {
+			return err
+		}
+		return binary.Write(s.buf, binary.LittleEndian, rv.Float())
+
 	case reflect.String:
 
 		if err := s.writeTypeMeta(FabricSerializationTypeWString | FabricSerializationTypeArray); err != nil {
@@ -245,13 +263,19 @@ func (s *encodeState) value(rv reflect.Value) error {
 		}
 	case reflect.Slice:
 
-		switch rv.Type().Elem().Kind() {
+		elmTyp := rv.Type().Elem().Kind()
+		switch elmTyp {
 		case reflect.String:
 			if err := s.writeTypeMeta(FabricSerializationTypeUInt32); err != nil {
 				return err
 			}
-		case reflect.Struct:
-			if err := s.writeTypeMeta(FabricSerializationTypeObject | FabricSerializationTypeArray); err != nil {
+		default:
+			baseTyp := kindToFabricSerializationType(elmTyp)
+
+			if baseTyp == FabricSerializationTypeNotAMeta {
+				return fmt.Errorf("unsupported slice type %v", elmTyp)
+			}
+			if err := s.writeTypeMeta(baseTyp | FabricSerializationTypeArray); err != nil {
 				return err
 			}
 		}

@@ -209,6 +209,19 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 		default:
 			return fmt.Errorf("expect int got %v", meta)
 		}
+	case reflect.Float32, reflect.Float64:
+		if meta != FabricSerializationTypeDouble {
+			return fmt.Errorf("expect double got %v", meta)
+		}
+
+		var v float64
+
+		err := binary.Read(s.inner, binary.LittleEndian, &v)
+		if err != nil {
+			return err
+		}
+
+		rv.SetFloat(v)
 
 	case reflect.String:
 
