@@ -269,3 +269,42 @@ func TestBasicNestedObject(t *testing.T) {
 		}
 	}
 }
+
+func TestBasicObjectWithPointers(t *testing.T) {
+	type BasicObjectWithPointers struct {
+		BasicObject1 *BasicObject
+		BasicObject2 *BasicObject
+	}
+
+	var parent BasicObjectWithPointers
+
+	parent.BasicObject1 = &BasicObject{}
+	parent.BasicObject1.Short1 = 1000
+	parent.BasicObject1.Ushort1 = 10454
+	parent.BasicObject1.Bool1 = false
+	parent.BasicObject1.Uchar1 = 0x0b
+	parent.BasicObject1.Char1 = 'v'
+	parent.BasicObject1.Ulong64_1 = 0xFFFFFFFFFF
+	parent.BasicObject1.Long64_1 = 0x0FFFFFFFFFFFF
+	parent.BasicObject1.Double = -9.343
+
+	// {14E4F405-BA48-4B51-8084-0B6C5523F29E}
+	parent.BasicObject1.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
+
+	{
+		data, err := Marshal(&parent)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var parent2 BasicObjectWithPointers
+		err = Unmarshal(data, &parent2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(parent, parent2) {
+			t.Fatal("not equal")
+		}
+	}
+}
