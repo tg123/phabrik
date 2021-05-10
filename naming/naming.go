@@ -89,10 +89,7 @@ func (n *NamingClient) Ping() (*GatewayDescription, error) {
 		return nil, err
 	}
 
-	body, ok := reply.Body.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("body not a []byte")
-	}
+	body := reply.Body
 	switch reply.Headers.Action {
 	case "PingRequest":
 		var b struct {
@@ -155,10 +152,7 @@ func (n *NamingClient) GetApplicationList(filter string) ([]ApplicationQueryResu
 		return nil, err
 	}
 
-	body, ok := reply.Body.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("body not a []byte")
-	}
+	body := reply.Body
 	var b struct {
 		ResultKind int32
 		ResultList *struct {

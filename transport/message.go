@@ -12,6 +12,11 @@ type Message struct {
 	Body    interface{}
 }
 
+type ByteArrayMessage struct {
+	Headers MessageHeaders
+	Body    []byte
+}
+
 func (m *Message) marshal() (int, []byte, error) {
 	var buf bytes.Buffer
 

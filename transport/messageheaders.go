@@ -39,7 +39,7 @@ type MessageHeaders struct {
 	customHeaders map[MessageHeaderIdType]interface{}
 }
 
-type ListenInstance struct {
+type listenInstance struct {
 	Address                string
 	Instance               uint64
 	Nonce                  serialization.GUID
@@ -47,10 +47,10 @@ type ListenInstance struct {
 	ConnectionFeatureFlags uint32
 }
 
-type SecurityNegotiationHeader struct {
+type securityNegotiationHeader struct {
 	X509ExtraFramingEnabled  bool
 	FramingProtectionEnabled bool
-	ListenInstance           ListenInstance
+	ListenInstance           listenInstance
 	MaxIncomingFrameSize     uint64
 }
 

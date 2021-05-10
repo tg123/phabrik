@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -12,7 +11,7 @@ import (
 	"github.com/tg123/phabrik/serialization"
 )
 
-type MessageHandler func(MessageActorType, *Message) error
+type MessageHandler func(MessageActorType, *ByteArrayMessage) error
 
 type Config struct {
 	MessageHandler MessageHandler
@@ -80,19 +79,14 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Client) handleTransportMessage(msg *Message) error {
-	body, ok := msg.Body.([]byte)
-	if !ok {
-		return fmt.Errorf("body not []byte")
-	}
-
+func (c *Client) handleTransportMessage(msg *ByteArrayMessage) error {
 	switch msg.Headers.Action {
 	case "HeartbeatRequest":
 		var b struct {
 			HeartbeatTimeTick int64
 		}
 
-		if err := serialization.Unmarshal(body, &b); err != nil {
+		if err := serialization.Unmarshal(msg.Body, &b); err != nil {
 			return err
 		}
 
@@ -103,7 +97,7 @@ func (c *Client) handleTransportMessage(msg *Message) error {
 			msg.Headers.Action = "HeartbeatResponse"
 			msg.Body = &b
 
-			err := c.SendOneWay(context.TODO(), msg)
+			err := c.SendOneWay(context.Background(), msg)
 			if err != nil {
 				return err
 			}
@@ -149,7 +143,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 		body := tcpbody[tcpheader.HeaderLength:]
 
-		msg := &Message{
+		msg := &ByteArrayMessage{
 			Headers: *headers,
 			Body:    body,
 		}
@@ -162,7 +156,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if !headers.RelatesTo.IsEmpty() {
 			ch, ok := c.requestTable.LoadAndDelete(headers.RelatesTo.String())
 			if ok {
-				ch.(chan *Message) <- msg
+				ch.(chan *ByteArrayMessage) <- msg
 			} else {
 				log.Printf("unknown reply %v", headers.RelatesTo)
 			}
@@ -184,13 +178,13 @@ func (c *Client) SendOneWay(ctx context.Context, message *Message) error {
 	return writeMessageWithFrame(c.conn, message, c.frameWCfg)
 }
 
-func (c *Client) RequestReply(ctx context.Context, message *Message) (*Message, error) {
+func (c *Client) RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error) {
 	c.msgfac.fillMessageId(message)
 	message.Headers.ExpectsReply = true
 	id := message.Headers.Id.String()
 	defer c.requestTable.Delete(id)
 
-	ch := make(chan *Message)
+	ch := make(chan *ByteArrayMessage)
 	c.requestTable.Store(id, ch)
 
 	err := c.SendOneWay(ctx, message)
