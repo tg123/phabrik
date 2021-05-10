@@ -11,20 +11,21 @@ import (
 	"github.com/tg123/phabrik/serialization"
 )
 
-type MessageHandler func(MessageActorType, *ByteArrayMessage) error
+type MessageHandler func(*Client, *ByteArrayMessage)
 
 type Config struct {
-	MessageHandler MessageHandler
-	TLS            *tls.Config
-	FrameHeaderCRC bool
-	FrameBodyCRC   bool
+	MessageHandlers map[MessageActorType]MessageHandler
+	TLS             *tls.Config
+	FrameHeaderCRC  bool
+	FrameBodyCRC    bool
 }
 
 type Client struct {
-	MessageHandler MessageHandler
-	conn           net.Conn
-	requestTable   sync.Map
-	msgfac         *messageFactory
+	handlerLock     sync.Mutex
+	messageHandlers map[MessageActorType]MessageHandler
+	conn            net.Conn
+	requestTable    sync.Map
+	msgfac          *messageFactory
 
 	frameRCfg frameReadConfig
 	frameWCfg frameWriteConfig
@@ -47,9 +48,14 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 	}
 
 	c := &Client{
-		msgfac:         mf,
-		MessageHandler: config.MessageHandler,
-		conn:           conn,
+		msgfac: mf,
+		conn:   conn,
+	}
+
+	if config.MessageHandlers != nil {
+		c.messageHandlers = config.MessageHandlers
+	} else {
+		c.messageHandlers = make(map[MessageActorType]MessageHandler)
 	}
 
 	c.frameWCfg.SecurityProviderMask = securityProviderNone
@@ -73,6 +79,17 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Client) SetMessageHandler(actor MessageActorType, h MessageHandler) {
+	c.handlerLock.Lock()
+	defer c.handlerLock.Unlock()
+
+	if h == nil {
+		delete(c.messageHandlers, actor)
+	} else {
+		c.messageHandlers[actor] = h
+	}
 }
 
 func (c *Client) Close() error {
@@ -131,17 +148,17 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	for {
-		tcpheader, tcpbody, err := nextFrame(c.conn, c.frameRCfg)
+		frameheader, framebody, err := nextFrame(c.conn, c.frameRCfg)
 		if err != nil {
 			return err
 		}
 
-		headers, err := parseFabricMessageHeaders(bytes.NewBuffer(tcpbody[:tcpheader.HeaderLength]))
+		headers, err := parseFabricMessageHeaders(bytes.NewBuffer(framebody[:frameheader.HeaderLength]))
 		if err != nil {
 			return err
 		}
 
-		body := tcpbody[tcpheader.HeaderLength:]
+		body := framebody[frameheader.HeaderLength:]
 
 		msg := &ByteArrayMessage{
 			Headers: *headers,
@@ -154,21 +171,19 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 
 		if !headers.RelatesTo.IsEmpty() {
-			ch, ok := c.requestTable.LoadAndDelete(headers.RelatesTo.String())
+			ch, ok := c.requestTable.Load(headers.RelatesTo.String())
+
 			if ok {
 				ch.(chan *ByteArrayMessage) <- msg
 			} else {
 				log.Printf("unknown reply %v", headers.RelatesTo)
 			}
 		} else {
-			if c.MessageHandler != nil {
-				go func() {
-					err := c.MessageHandler(headers.Actor, msg)
-					if err != nil {
-						log.Printf("handler err %v", err)
-					}
-				}()
+			c.handlerLock.Lock()
+			if h, ok := c.messageHandlers[headers.Actor]; ok {
+				go h(c, msg)
 			}
+			c.handlerLock.Unlock()
 		}
 	}
 }

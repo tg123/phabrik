@@ -141,7 +141,7 @@ func (h *MessageHeaders) writeTo(w io.Writer) error {
 	}
 
 	if h.ErrorCode != 0 || h.HasFaultBody {
-		if err := writeMessageHeader(w, MessageHeaderIdTypeIdempotent, &struct {
+		if err := writeMessageHeader(w, MessageHeaderIdTypeFault, &struct {
 			ErrorCode    FabricErrorCode
 			HasFaultBody bool
 		}{
@@ -153,7 +153,7 @@ func (h *MessageHeaders) writeTo(w io.Writer) error {
 	}
 
 	if h.RetryCount > 0 {
-		if err := writeMessageHeader(w, MessageHeaderIdTypeIdempotent, &struct {
+		if err := writeMessageHeader(w, MessageHeaderIdTypeRetry, &struct {
 			RetryCount int32
 		}{
 			RetryCount: h.RetryCount,
@@ -213,7 +213,7 @@ func nextMessageHeader(stream io.Reader) (MessageHeaderIdType, []byte, error) {
 	return id, body, nil
 }
 
-func parseFabricMessageHeaders(stream io.Reader) (*MessageHeaders, error) {
+func parseFabricMessageHeaders(r io.Reader) (*MessageHeaders, error) {
 
 	headers := MessageHeaders{
 		customHeaders: make(map[MessageHeaderIdType]interface{}),
@@ -221,7 +221,7 @@ func parseFabricMessageHeaders(stream io.Reader) (*MessageHeaders, error) {
 
 	for {
 
-		id, headerdata, err := nextMessageHeader(stream)
+		id, headerdata, err := nextMessageHeader(r)
 		if err == io.EOF {
 			return &headers, nil
 		}
@@ -325,7 +325,7 @@ func parseFabricMessageHeaders(stream io.Reader) (*MessageHeaders, error) {
 
 			if activator != nil {
 				hv := activator()
-				if err := serialization.Unmarshal(headerdata, &hv); err != nil {
+				if err := serialization.Unmarshal(headerdata, hv); err != nil {
 					return nil, err
 				}
 

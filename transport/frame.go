@@ -36,9 +36,9 @@ type frameReadConfig struct {
 	CheckFrameBodyCRC   bool
 }
 
-func nextFrame(stream io.Reader, config frameReadConfig) (*frameheader, []byte, error) {
+func nextFrame(r io.Reader, config frameReadConfig) (*frameheader, []byte, error) {
 	header := frameheader{}
-	err := binary.Read(stream, binary.LittleEndian, &header)
+	err := binary.Read(r, binary.LittleEndian, &header)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,7 +63,7 @@ func nextFrame(stream io.Reader, config frameReadConfig) (*frameheader, []byte, 
 
 	body := make([]byte, header.FrameLength-uint32(binary.Size(header)))
 
-	_, err = io.ReadFull(stream, body)
+	_, err = io.ReadFull(r, body)
 	if err != nil {
 		return nil, nil, err
 	}

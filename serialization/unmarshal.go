@@ -3,10 +3,8 @@ package serialization
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"reflect"
 	"unicode/utf16"
 )
@@ -35,12 +33,12 @@ func IsBaseMeta(meta, base FabricSerializationType) bool {
 	return (meta & FabricSerializationTypeBaseTypeMask) == base
 }
 
-func (s *decodeState) dumpCurrentPos() {
-	c, _ := s.inner.Seek(0, io.SeekCurrent)
-	x := make([]byte, 10)
-	s.inner.ReadAt(x, c)
-	log.Printf("pos %v %v", c, hex.EncodeToString(x))
-}
+// func (s *decodeState) dumpCurrentPos() {
+// 	c, _ := s.inner.Seek(0, io.SeekCurrent)
+// 	x := make([]byte, 10)
+// 	s.inner.ReadAt(x, c)
+// 	log.Printf("pos %v %v", c, hex.EncodeToString(x))
+// }
 
 // func (s *decodeState) readCompressedUInt64() (uint64, error) {
 // 	v, err := s.readCompressedUnsigned(binary.Size(uint64(1)))
