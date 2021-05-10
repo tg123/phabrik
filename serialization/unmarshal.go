@@ -258,12 +258,8 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 		rv.Set(ptr)
 
 	case reflect.Struct:
-		if rv.CanAddr() {
-			v := rv.Addr().Interface()
-
-			if cm, ok := v.(customMarshaler); ok {
-				return cm.Unmarshal(meta, s)
-			}
+		if cm, ok := castToMarshaler(rv); ok {
+			return cm.Unmarshal(meta, s)
 		}
 
 		endPos, err := s.readObjectBegin(meta)
@@ -271,9 +267,7 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 			return err
 		}
 
-		for i := 0; i < rv.NumField(); i++ {
-			field := rv.Field(i)
-
+		for _, field := range allFields(rv) {
 			meta, err := s.readTypeMeta()
 			if err != nil {
 				return err
@@ -378,8 +372,6 @@ func Unmarshal(data []byte, v interface{}) error {
 	if rv.Kind() != reflect.Struct {
 		return fmt.Errorf("unmarshal type must be ptr to struct")
 	}
-
-	// log.Println("Unmarshal ", hex.EncodeToString(data))
 
 	d := decodeState{bytes.NewReader(data)}
 	meta, err := d.readTypeMeta()

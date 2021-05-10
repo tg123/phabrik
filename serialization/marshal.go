@@ -240,20 +240,16 @@ func (s *encodeState) value(rv reflect.Value) error {
 			return err
 		}
 	case reflect.Struct:
-		if rv.CanAddr() {
-			v := rv.Addr().Interface()
-
-			if cm, ok := v.(customMarshaler); ok {
-				return cm.Marshal(s)
-			}
+		if cm, ok := castToMarshaler(rv); ok {
+			return cm.Marshal(s)
 		}
 
 		if err := s.objectScopeBegin(); err != nil {
 			return err
 		}
 
-		for i := 0; i < rv.NumField(); i++ {
-			if err := s.value(rv.Field(i)); err != nil {
+		for _, field := range allFields(rv) {
+			if err := s.value(field); err != nil {
 				return err
 			}
 		}
