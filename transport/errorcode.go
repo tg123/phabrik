@@ -1,4 +1,4 @@
-package serialization
+package transport
 
 type FabricErrorCode int32
 

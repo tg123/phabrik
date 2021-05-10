@@ -75,7 +75,7 @@ type NamingClient struct {
 
 type GatewayDescription struct {
 	Address      string
-	NodeInstance serialization.NodeInstance
+	NodeInstance NodeInstance
 	NodeName     string
 }
 
@@ -120,7 +120,7 @@ func (n *NamingClient) Ping() (*GatewayDescription, error) {
 }
 
 type ApplicationQueryResult struct {
-	ApplicationName        serialization.Uri
+	ApplicationName        Uri
 	ApplicationTypeName    string
 	ApplicationTypeVersion string
 	ApplicationStatus      int32

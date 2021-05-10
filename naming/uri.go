@@ -1,4 +1,4 @@
-package serialization
+package naming
 
 type UriType int32
 

@@ -34,7 +34,7 @@ type MessageHeaders struct {
 	HighPriority bool
 	Idempotent   bool
 
-	ErrorCode    serialization.FabricErrorCode
+	ErrorCode    FabricErrorCode
 	HasFaultBody bool
 	RetryCount   int32
 
@@ -144,7 +144,7 @@ func (h *MessageHeaders) writeTo(w io.Writer) error {
 
 	if h.ErrorCode != 0 || h.HasFaultBody {
 		if err := writeMessageHeader(w, MessageHeaderIdTypeIdempotent, &struct {
-			ErrorCode    serialization.FabricErrorCode
+			ErrorCode    FabricErrorCode
 			HasFaultBody bool
 		}{
 			ErrorCode:    h.ErrorCode,
@@ -300,7 +300,7 @@ func parseFabricMessageHeaders(stream io.Reader) (*MessageHeaders, error) {
 			// TODO support negotiation
 		case MessageHeaderIdTypeFault:
 			var hv struct {
-				ErrorCode    serialization.FabricErrorCode
+				ErrorCode    FabricErrorCode
 				HasFaultBody bool
 			}
 

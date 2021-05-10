@@ -1,4 +1,4 @@
-package serialization
+package naming
 
 import (
 	"crypto/md5"
@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/tg123/phabrik/serialization"
 )
 
 type uint128 struct {
@@ -70,11 +72,12 @@ type NodeInstance struct {
 }
 
 var sizeOfNodeID = uint32(binary.Size(NodeID{}))
-var _ CustomMarshaler = (*NodeID)(nil)
+var _ serialization.CustomMarshaler = (*NodeID)(nil)
+var nodeIdMetaType = serialization.FabricSerializationTypeUChar | serialization.FabricSerializationTypeArray
 
-func (n *NodeID) Marshal(s Encoder) error {
+func (n *NodeID) Marshal(s serialization.Encoder) error {
 
-	if err := s.WriteTypeMeta(FabricSerializationTypeUChar | FabricSerializationTypeArray); err != nil {
+	if err := s.WriteTypeMeta(nodeIdMetaType); err != nil {
 		return err
 	}
 
@@ -85,10 +88,10 @@ func (n *NodeID) Marshal(s Encoder) error {
 	return s.WriteBinary(n)
 }
 
-func (n *NodeID) Unmarshal(meta FabricSerializationType, s Decoder) error {
+func (n *NodeID) Unmarshal(meta serialization.FabricSerializationType, s serialization.Decoder) error {
 
-	if meta != FabricSerializationTypeUChar|FabricSerializationTypeArray {
-		return fmt.Errorf("expect array got %v", meta)
+	if meta != nodeIdMetaType {
+		return fmt.Errorf("expect %v got %v", nodeIdMetaType, meta)
 	}
 
 	c, err := s.ReadCompressedUInt32()
