@@ -13,6 +13,18 @@ type encodeState struct {
 	buf      *bytes.Buffer
 }
 
+func (s *encodeState) WriteTypeMeta(t FabricSerializationType) error {
+	return s.writeTypeMeta(t)
+}
+
+func (s *encodeState) WriteBinary(v interface{}) error {
+	return binary.Write(s.buf, binary.LittleEndian, v)
+}
+
+func (s *encodeState) WriteCompressedUInt32(v uint32) error {
+	return s.writeCompressedUint32(v)
+}
+
 func (s *encodeState) pushBuffer() {
 	buf := bytes.NewBuffer(nil)
 	s.bufStack = append(s.bufStack, buf)

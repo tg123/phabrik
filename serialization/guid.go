@@ -10,27 +10,27 @@ import (
 
 type GUID ole.GUID
 
-var _ customMarshaler = (*GUID)(nil)
+var _ CustomMarshaler = (*GUID)(nil)
 
-func (g *GUID) Marshal(s *encodeState) error {
+func (g *GUID) Marshal(s Encoder) error {
 	if g.IsEmpty() {
-		return s.writeTypeMeta(FabricSerializationTypeGuid | FabricSerializationTypeEmptyValueBit)
+		return s.WriteTypeMeta(FabricSerializationTypeGuid | FabricSerializationTypeEmptyValueBit)
 	}
 
-	if err := s.writeTypeMeta(FabricSerializationTypeGuid); err != nil {
+	if err := s.WriteTypeMeta(FabricSerializationTypeGuid); err != nil {
 		return err
 	}
 
-	return binary.Write(s.buf, binary.LittleEndian, g)
+	return s.WriteBinary(g)
 }
 
-func (g *GUID) Unmarshal(meta FabricSerializationType, s *decodeState) error {
+func (g *GUID) Unmarshal(meta FabricSerializationType, s Decoder) error {
 
-	if !isBaseMeta(meta, FabricSerializationTypeGuid) {
+	if !IsBaseMeta(meta, FabricSerializationTypeGuid) {
 		return fmt.Errorf("expect guid get %v", meta)
 	}
 
-	return binary.Read(s.inner, binary.LittleEndian, g)
+	return s.ReadBinary(g)
 }
 
 func (g *GUID) IsEmpty() bool {

@@ -70,28 +70,28 @@ type NodeInstance struct {
 }
 
 var sizeOfNodeID = uint32(binary.Size(NodeID{}))
-var _ customMarshaler = (*NodeID)(nil)
+var _ CustomMarshaler = (*NodeID)(nil)
 
-func (n *NodeID) Marshal(s *encodeState) error {
+func (n *NodeID) Marshal(s Encoder) error {
 
-	if err := s.writeTypeMeta(FabricSerializationTypeUChar | FabricSerializationTypeArray); err != nil {
+	if err := s.WriteTypeMeta(FabricSerializationTypeUChar | FabricSerializationTypeArray); err != nil {
 		return err
 	}
 
-	if err := s.writeCompressedUint32(sizeOfNodeID); err != nil {
+	if err := s.WriteCompressedUInt32(sizeOfNodeID); err != nil {
 		return err
 	}
 
-	return binary.Write(s.buf, binary.LittleEndian, n)
+	return s.WriteBinary(n)
 }
 
-func (n *NodeID) Unmarshal(meta FabricSerializationType, s *decodeState) error {
+func (n *NodeID) Unmarshal(meta FabricSerializationType, s Decoder) error {
 
 	if meta != FabricSerializationTypeUChar|FabricSerializationTypeArray {
 		return fmt.Errorf("expect array got %v", meta)
 	}
 
-	c, err := s.readCompressedUInt32()
+	c, err := s.ReadCompressedUInt32()
 	if err != nil {
 		return err
 	}
@@ -100,5 +100,5 @@ func (n *NodeID) Unmarshal(meta FabricSerializationType, s *decodeState) error {
 		return fmt.Errorf("wrong node id size")
 	}
 
-	return binary.Read(s.inner, binary.LittleEndian, n)
+	return s.ReadBinary(n)
 }

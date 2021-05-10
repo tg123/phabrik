@@ -5,14 +5,25 @@ import (
 	"reflect"
 )
 
-type customMarshaler interface {
-	Marshal(*encodeState) error
-	Unmarshal(FabricSerializationType, *decodeState) error
+type Encoder interface {
+	WriteTypeMeta(FabricSerializationType) error
+	WriteBinary(interface{}) error
+	WriteCompressedUInt32(uint32) error
 }
 
-var customMarshalerType = reflect.TypeOf((*customMarshaler)(nil)).Elem()
+type Decoder interface {
+	ReadBinary(interface{}) error
+	ReadCompressedUInt32() (uint32, error)
+}
 
-func castToMarshaler(rv reflect.Value) (customMarshaler, bool) {
+type CustomMarshaler interface {
+	Marshal(Encoder) error
+	Unmarshal(FabricSerializationType, Decoder) error
+}
+
+var customMarshalerType = reflect.TypeOf((*CustomMarshaler)(nil)).Elem()
+
+func castToMarshaler(rv reflect.Value) (CustomMarshaler, bool) {
 	var v interface{}
 	if rv.Kind() != reflect.Ptr && reflect.PtrTo(rv.Type()).Implements(customMarshalerType) {
 
@@ -21,7 +32,7 @@ func castToMarshaler(rv reflect.Value) (customMarshaler, bool) {
 		v = rv.Interface()
 	}
 
-	cm, ok := v.(customMarshaler)
+	cm, ok := v.(CustomMarshaler)
 	return cm, ok
 }
 

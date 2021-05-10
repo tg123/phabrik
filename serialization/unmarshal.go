@@ -15,15 +15,23 @@ type decodeState struct {
 	inner *bytes.Reader
 }
 
-func isEmptyMeta(meta FabricSerializationType) bool {
+func (s *decodeState) ReadBinary(v interface{}) error {
+	return binary.Read(s.inner, binary.LittleEndian, v)
+}
+
+func (s *decodeState) ReadCompressedUInt32() (uint32, error) {
+	return s.readCompressedUInt32()
+}
+
+func IsEmptyMeta(meta FabricSerializationType) bool {
 	return meta&FabricSerializationTypeEmptyValueBit > 0
 }
 
-func isArrayMeta(meta FabricSerializationType) bool {
+func IsArrayMeta(meta FabricSerializationType) bool {
 	return meta&FabricSerializationTypeArray > 0
 }
 
-func isBaseMeta(meta, base FabricSerializationType) bool {
+func IsBaseMeta(meta, base FabricSerializationType) bool {
 	return (meta & FabricSerializationTypeBaseTypeMask) == base
 }
 
@@ -147,7 +155,7 @@ func (s *decodeState) consumeObjectEnd(meta FabricSerializationType, endpos int6
 }
 
 func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) error {
-	if isEmptyMeta(meta) {
+	if IsEmptyMeta(meta) {
 
 		// bool is alway empty
 		if rv.Kind() == reflect.Bool {

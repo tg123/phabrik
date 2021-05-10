@@ -1,11 +1,57 @@
 package serialization
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type cm struct {
+	v int
+}
+
+func (c *cm) Marshal(s Encoder) error {
+	if err := s.WriteTypeMeta(FabricSerializationTypeChar); err != nil {
+		return nil
+	}
+	return s.WriteBinary([]byte(strconv.Itoa(c.v))[0])
+}
+
+func (c *cm) Unmarshal(meta FabricSerializationType, s Decoder) error {
+	if meta != FabricSerializationTypeChar {
+		return fmt.Errorf("except char got %v", meta)
+	}
+
+	var b byte
+	if err := s.ReadBinary(&b); err != nil {
+		return err
+	}
+
+	v, err := strconv.Atoi(string(b))
+	if err != nil {
+		return err
+	}
+
+	c.v = v
+	return nil
+}
+
+func TestCustomMarshaler(t *testing.T) {
+	type S struct {
+		F cm
+	}
+
+	var object S
+	object.F.v = 9
+
+	var object2 S
+	marshalAndUnmarshal(t, &object, &object2)
+
+	assert.Equal(t, object.F.v, object2.F.v)
+}
 
 type BasicObject struct {
 	Char1     int8
