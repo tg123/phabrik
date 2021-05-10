@@ -3,6 +3,8 @@ package serialization
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type BasicObject struct {
@@ -132,16 +134,43 @@ func TestBasicSerializationWithChild(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if object2.Char1 != 42 {
-			t.Errorf("except %v got %v", 42, object2.Char1)
-		}
-
-		if object2.Uchar1 != 1 {
-			t.Errorf("except %v got %v", 1, object2.Uchar1)
-		}
-
-		if object2.Ushort1 != 9527 {
-			t.Errorf("except %v got %v", 9527, object2.Ushort1)
-		}
+		assert.Equal(t, int8(42), object2.Char1)
+		assert.Equal(t, uint8(1), object2.Uchar1)
+		assert.Equal(t, uint16(9527), object2.Ushort1)
 	}
+}
+
+type BasicObject2 struct {
+	Ulong uint32
+	Bool  bool
+}
+
+func TestBasicVersioningChildReadBase(t *testing.T) {
+	type BasicChildObject struct {
+		BasicObject2
+		Short int16
+		Guid  GUID
+	}
+
+	var object1 BasicChildObject
+
+	object1.Bool = false
+	object1.Short = 999
+	object1.Ulong = 0xDDDD
+	object1.Guid = *MustNewGuidV4()
+
+	data, err := Marshal(&object1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var object2 BasicObject2
+	err = Unmarshal(data, &object2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, uint32(0xDDDD), object2.Ulong)
+	assert.Equal(t, false, object2.Bool)
+
 }

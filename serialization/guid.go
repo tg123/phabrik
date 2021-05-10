@@ -55,3 +55,12 @@ func NewGuidV4() (*GUID, error) {
 	g.Data4[0] = (g.Data4[0] & 0x3f) | 0x80 // RFC4122 variant
 	return &g, nil
 }
+
+func MustNewGuidV4() *GUID {
+	g, err := NewGuidV4()
+	if err != nil {
+		panic(err)
+	}
+
+	return g
+}
