@@ -303,7 +303,6 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 			}
 		case reflect.Struct:
 			if meta != FabricSerializationTypeObject|FabricSerializationTypeArray {
-				s.dumpCurrentPos()
 				return fmt.Errorf("[]struct{} expect array got %v", meta)
 			}
 		}
