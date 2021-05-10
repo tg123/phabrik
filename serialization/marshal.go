@@ -144,16 +144,14 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeUInt32)
 		case reflect.Struct:
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeObject)
-		case reflect.Uint8, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Int16, reflect.Int32, reflect.Int64:
+		default:
 			basetyp := kindToFabricSerializationType(elmTyp.Kind())
 
 			if basetyp == FabricSerializationTypeNotAMeta {
-				return fmt.Errorf("bad base type meta")
+				return fmt.Errorf("unsupported marshal empty slice type %v", elmTyp)
 			}
 
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | basetyp | FabricSerializationTypeArray)
-		default:
-			return fmt.Errorf("unsupported marshal empty slice type %v", elmTyp)
 		}
 	case reflect.Map:
 		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeArray)

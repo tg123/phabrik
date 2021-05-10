@@ -26,6 +26,18 @@ type BasicObject struct {
 	Guid GUID
 }
 
+func marshalAndUnmarshal(t *testing.T, from, to interface{}) {
+	data, err := Marshal(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Unmarshal(data, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBasicSerialization(t *testing.T) {
 	var object BasicObject
 
@@ -48,19 +60,18 @@ func TestBasicSerialization(t *testing.T) {
 	// {14E4F405-BA48-4B51-8084-0B6C5523F29E}
 	object.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
 
-	data, err := Marshal(&object)
-	if err != nil {
-		t.Fatal(err)
+	{
+
+		var object2 BasicObject
+		marshalAndUnmarshal(t, &object, &object2)
+		assert.Equal(t, object, object2)
 	}
 
-	var object2 BasicObject
-	err = Unmarshal(data, &object2)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(object, object2) {
-		t.Fatal("not equal")
+	{
+		// test empty
+		var empty BasicObject
+		marshalAndUnmarshal(t, &BasicObject{}, &empty)
+		assert.Equal(t, empty, BasicObject{})
 	}
 }
 
@@ -96,25 +107,15 @@ func TestBasicSerializationWithChild(t *testing.T) {
 	object.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
 
 	{
-		data, err := Marshal(&object)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		var object2 BasicObjectChild
-		err = Unmarshal(data, &object2)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !reflect.DeepEqual(object, object2) {
-			t.Fatal("not equal")
-		}
+		marshalAndUnmarshal(t, &object, &object2)
+		assert.Equal(t, object, object2)
 	}
 
 	// make sure embedded obj
 	{
-		data, err := Marshal(&struct {
+		var object2 BasicObjectChild
+		marshalAndUnmarshal(t, &struct {
 			Char1   int8
 			Uchar1  uint8
 			Short1  int16
@@ -123,16 +124,7 @@ func TestBasicSerializationWithChild(t *testing.T) {
 			Char1:   42,
 			Uchar1:  1,
 			Ushort1: 9527,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		var object2 BasicObjectChild
-		err = Unmarshal(data, &object2)
-		if err != nil {
-			t.Fatal(err)
-		}
+		}, &object2)
 
 		assert.Equal(t, int8(42), object2.Char1)
 		assert.Equal(t, uint8(1), object2.Uchar1)
@@ -160,16 +152,9 @@ func TestBasicVersioningChildReadBase(t *testing.T) {
 	object1.Ulong = 0xDDDD
 	object1.Guid = *MustNewGuidV4()
 
-	data, err := Marshal(&object1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	var object2 BasicObjectVersion
-	err = Unmarshal(data, &object2)
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	marshalAndUnmarshal(t, &object1, &object2)
 
 	assert.Equal(t, uint32(0xDDDD), object2.Ulong)
 	assert.Equal(t, false, object2.Bool)
@@ -191,19 +176,18 @@ func TestBasicVersioningChild2(t *testing.T) {
 	object1.Long64 = 0xF123456
 
 	{
-		data, err := Marshal(&object1)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		var object2 BasicObjectVersion
-		err = Unmarshal(data, &object2)
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		marshalAndUnmarshal(t, &object1, &object2)
 
 		assert.Equal(t, uint32(0xDDDD), object2.Ulong)
 		assert.Equal(t, false, object2.Bool)
+	}
+
+	{
+		var empty BasicChild2ObjectVersion
+		marshalAndUnmarshal(t, &BasicChild2ObjectVersion{}, &empty)
+		assert.Equal(t, BasicChild2ObjectVersion{}, empty)
 	}
 
 	{
@@ -253,20 +237,15 @@ func TestBasicNestedObject(t *testing.T) {
 	parent.BasicObject.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
 
 	{
-		data, err := Marshal(&parent)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		var parent2 BasicNestedObject
-		err = Unmarshal(data, &parent2)
-		if err != nil {
-			t.Fatal(err)
-		}
+		marshalAndUnmarshal(t, &parent, &parent2)
+		assert.Equal(t, parent, parent2)
+	}
 
-		if !reflect.DeepEqual(parent, parent2) {
-			t.Fatal("not equal")
-		}
+	{
+		var empty BasicNestedObject
+		marshalAndUnmarshal(t, &BasicNestedObject{}, &empty)
+		assert.Equal(t, BasicNestedObject{}, empty)
 	}
 }
 
@@ -292,19 +271,198 @@ func TestBasicObjectWithPointers(t *testing.T) {
 	parent.BasicObject1.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
 
 	{
-		data, err := Marshal(&parent)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		var parent2 BasicObjectWithPointers
-		err = Unmarshal(data, &parent2)
-		if err != nil {
-			t.Fatal(err)
+		marshalAndUnmarshal(t, &parent, &parent2)
+
+		assert.Equal(t, parent, parent2)
+	}
+
+	{
+		var empty BasicObjectWithPointers
+		marshalAndUnmarshal(t, &BasicObjectWithPointers{}, &empty)
+
+		assert.Equal(t, BasicObjectWithPointers{}, empty)
+	}
+}
+
+func TestPolymorphicObject(t *testing.T) {
+	// TODO activator not supported
+}
+
+func TestPolymorphicObjectChild(t *testing.T) {
+	// TODO activator not supported
+}
+
+type BasicObjectV1 struct {
+	Char1 int8
+}
+
+type BasicUnknownNestedObject struct {
+	Char1   int8
+	Ulong64 uint64
+}
+
+type BasicObjectV2 struct {
+	Char1                 int8
+	Ulong64               uint64
+	Short1                int16
+	Guid                  GUID
+	CharArray             []int8
+	BasicUnknownNested    BasicUnknownNestedObject
+	Long1                 int32
+	BasicUnknownNestedPtr *BasicUnknownNestedObject
+	Ulong1                uint32
+}
+
+func TestBasicObjectVersioningV1ToV2(t *testing.T) {
+	var object1 BasicObjectV1
+	object1.Char1 = 'F'
+
+	var object2 BasicObjectV2
+	marshalAndUnmarshal(t, &object1, &object2)
+
+	assert.Equal(t, object1.Char1, object2.Char1)
+	assert.Equal(t, object2.Ulong64, uint64(0))
+}
+
+func TestBasicObjectVersioningV2ToV1ToV2(t *testing.T) {
+	var object1 BasicObjectV2
+
+	object1.Char1 = 'F'
+	object1.Ulong64 = 0xF00D
+	object1.Short1 = 0xBAD
+	object1.CharArray = []int8{'y', 'e', 's'}
+
+	object1.BasicUnknownNested.Char1 = 'y'
+	object1.BasicUnknownNestedPtr = &BasicUnknownNestedObject{}
+	object1.BasicUnknownNestedPtr.Char1 = 'r'
+
+	{
+		var object2 BasicObjectV2
+		marshalAndUnmarshal(t, &object1, &object2)
+		assert.Equal(t, object1, object2)
+	}
+
+	{
+		var empty BasicObjectV2
+		marshalAndUnmarshal(t, &BasicObjectV2{}, &empty)
+		assert.Equal(t, BasicObjectV2{}, empty)
+	}
+
+	{
+		var object2 BasicObjectV1
+		marshalAndUnmarshal(t, &object1, &object2)
+
+		assert.Equal(t, object1.Char1, object2.Char1)
+
+		object2b := object2
+		var object3 BasicObjectV1
+		marshalAndUnmarshal(t, &object2b, &object3)
+		// unknown object cannot be carried
+		// assert.Equal(t, object3, object1)
+	}
+
+}
+
+type BasicObjectWithArraysV1 struct {
+	Long64 int64
+}
+
+type BasicObjectWithArraysV2 struct {
+	Long64                         int64
+	BoolArray                      []bool
+	CharArray                      []int8
+	UcharArray                     []uint8
+	ShortArray                     []int16
+	UshortArray                    []uint16
+	LongArray                      []int32
+	UlongArray                     []uint32
+	Long64Array                    []int64
+	Ulong64Array                   []uint64
+	GuidArray                      []GUID
+	DoubleArray                    []float64
+	BasicUnknownNestedObjectArray  []BasicUnknownNestedObject
+	BasicUnknownNestedPointerArray []*BasicUnknownNestedObject
+}
+
+func TestObjectWithArraysVersioningV1ToV2(t *testing.T) {
+	var object1 BasicObjectWithArraysV1
+	object1.Long64 = 0x4234
+
+	var object2 BasicObjectWithArraysV2
+	marshalAndUnmarshal(t, &object1, &object2)
+
+	assert.Equal(t, object1.Long64, object2.Long64)
+}
+
+func TestObjectWithArraysVersioningV2ToV1(t *testing.T) {
+	fill := func(array interface{}, len int, v interface{}) {
+		rav := reflect.Indirect(reflect.ValueOf(array))
+		rvv := reflect.ValueOf(v)
+
+		arr := reflect.MakeSlice(rav.Type(), len, len)
+
+		for i := 0; i < len; i++ {
+			arr.Index(i).Set(rvv)
 		}
 
-		if !reflect.DeepEqual(parent, parent2) {
-			t.Fatal("not equal")
+		rav.Set(arr)
+	}
+
+	var object1 BasicObjectWithArraysV2
+	object1.Long64 = 0xfafafaf
+
+	object1.BoolArray = []bool{true, false}
+
+	fill(&object1.CharArray, 10, int8('a'))
+	fill(&object1.UcharArray, 5, uint8(0x20))
+	fill(&object1.ShortArray, 15, int16(1))
+	fill(&object1.UshortArray, 5, uint16(0x23))
+	fill(&object1.LongArray, 53, int32(0x2f0))
+	fill(&object1.UlongArray, 12, uint32(0x20))
+	fill(&object1.Long64Array, 53, int64(0x2f0))
+	fill(&object1.Ulong64Array, 12, uint64(0x20))
+	fill(&object1.DoubleArray, 20, float64(-5.33))
+
+	for i := 0; i < 13; i++ {
+		object1.GuidArray = append(object1.GuidArray, *MustNewGuidV4())
+	}
+
+	for i := 0; i < 3; i++ {
+		var nested BasicUnknownNestedObject
+		nested.Char1 = 'y'
+		nested.Ulong64 = uint64(i)
+
+		object1.BasicUnknownNestedObjectArray = append(object1.BasicUnknownNestedObjectArray, nested)
+	}
+
+	for i := 0; i < 9; i++ {
+		var nested *BasicUnknownNestedObject
+
+		if i%3 == 0 {
+			nested = &BasicUnknownNestedObject{}
+			nested.Char1 = 'x'
+			nested.Ulong64 = uint64(i * 3)
 		}
+
+		object1.BasicUnknownNestedPointerArray = append(object1.BasicUnknownNestedPointerArray, nested)
+	}
+
+	{
+		var empty BasicObjectWithArraysV2
+		marshalAndUnmarshal(t, &BasicObjectWithArraysV2{}, &empty)
+		assert.Equal(t, BasicObjectWithArraysV2{}, empty)
+	}
+
+	{
+		var object2 BasicObjectWithArraysV2
+		marshalAndUnmarshal(t, &object1, &object2)
+		assert.Equal(t, object1, object2)
+	}
+
+	{
+		var object2 BasicObjectWithArraysV1
+		marshalAndUnmarshal(t, &object1, &object2)
+		assert.Equal(t, object1.Long64, object2.Long64)
 	}
 }
