@@ -140,19 +140,20 @@ func TestBasicSerializationWithChild(t *testing.T) {
 	}
 }
 
-type BasicObject2 struct {
+type BasicObjectVersion struct {
 	Ulong uint32
 	Bool  bool
 }
 
-func TestBasicVersioningChildReadBase(t *testing.T) {
-	type BasicChildObject struct {
-		BasicObject2
-		Short int16
-		Guid  GUID
-	}
+type BasicChildObjectVersion struct {
+	BasicObjectVersion
+	Short int16
+	Guid  GUID
+}
 
-	var object1 BasicChildObject
+func TestBasicVersioningChildReadBase(t *testing.T) {
+
+	var object1 BasicChildObjectVersion
 
 	object1.Bool = false
 	object1.Short = 999
@@ -164,7 +165,7 @@ func TestBasicVersioningChildReadBase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var object2 BasicObject2
+	var object2 BasicObjectVersion
 	err = Unmarshal(data, &object2)
 	if err != nil {
 		t.Fatal(err)
@@ -172,5 +173,99 @@ func TestBasicVersioningChildReadBase(t *testing.T) {
 
 	assert.Equal(t, uint32(0xDDDD), object2.Ulong)
 	assert.Equal(t, false, object2.Bool)
+}
 
+func TestBasicVersioningChild2(t *testing.T) {
+	type BasicChild2ObjectVersion struct {
+		BasicChildObjectVersion
+		Char   int8
+		Long64 int64
+	}
+
+	var object1 BasicChild2ObjectVersion
+
+	object1.Bool = false
+	object1.Short = 999
+	object1.Ulong = 0xDDDD
+	object1.Char = 0
+	object1.Long64 = 0xF123456
+
+	{
+		data, err := Marshal(&object1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var object2 BasicObjectVersion
+		err = Unmarshal(data, &object2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, uint32(0xDDDD), object2.Ulong)
+		assert.Equal(t, false, object2.Bool)
+	}
+
+	{
+		// TODO unknown object doest not support
+	}
+}
+
+func TestBasicNestedObject(t *testing.T) {
+	type BasicNestedObject struct {
+		Char1            int8
+		Short1           int16
+		BasicObject      BasicObject
+		BasicObjectArray []BasicObjectVersion
+	}
+
+	var parent BasicNestedObject
+
+	parent.Char1 = 'z'
+	parent.Short1 = -10324
+
+	parent.BasicObject.Short1 = 1000
+	parent.BasicObject.Ushort1 = 10454
+	parent.BasicObject.Bool1 = false
+	parent.BasicObject.Uchar1 = 0x0b
+	parent.BasicObject.Char1 = 'v'
+	parent.BasicObject.Ulong64_1 = 0xFFFFFFFFFF
+	parent.BasicObject.Long64_1 = 0x0FFFFFFFFFFFF
+	parent.BasicObject.Double = -9.343
+
+	parent.BasicObject.Ulong64ArraySize = 100
+	parent.BasicObject.Ulong64Array = make([]uint64, parent.BasicObject.Ulong64ArraySize)
+
+	for i := uint32(0); i < parent.BasicObject.Ulong64ArraySize; i++ {
+		parent.BasicObject.Ulong64Array[i] = 0xFFFFFFFFF - uint64(i)*13
+	}
+
+	for i := 0; i < 10; i++ {
+		var object BasicObjectVersion
+		object.Ulong = uint32(i)
+		object.Bool = ((i & 1) == 1)
+		parent.BasicObjectArray = append(parent.BasicObjectArray, object)
+	}
+
+	parent.BasicObject.String = "striiiing"
+
+	// {14E4F405-BA48-4B51-8084-0B6C5523F29E}
+	parent.BasicObject.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
+
+	{
+		data, err := Marshal(&parent)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var parent2 BasicNestedObject
+		err = Unmarshal(data, &parent2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(parent, parent2) {
+			t.Fatal("not equal")
+		}
+	}
 }
