@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-ole/go-ole"
 	"github.com/tg123/phabrik/serialization"
 	"github.com/tg123/phabrik/transport"
 )
@@ -25,8 +24,7 @@ func (a ActivityId) IsEmpty() bool {
 }
 
 func (a ActivityId) String() string {
-	g := ole.GUID(a.Id)
-	return fmt.Sprintf("%v:%v", g.String(), a.Index)
+	return fmt.Sprintf("%v:%v", a.Id.String(), a.Index)
 }
 
 // func init() {
@@ -51,7 +49,7 @@ func newNamingMessage(action string) (*transport.Message, error) {
 		Activity ActivityId
 	}{
 		Activity: ActivityId{
-			Id: *activityId,
+			Id: activityId,
 		},
 	})
 

@@ -23,7 +23,7 @@ type Config struct {
 }
 
 type messageFactory struct {
-	messagePrefix *serialization.GUID
+	messagePrefix serialization.GUID
 	messageIdx    uint32
 }
 
@@ -46,7 +46,7 @@ func (f *messageFactory) newMessage() *Message {
 
 func (f *messageFactory) fillMessageId(message *Message) {
 	if message.Headers.Id.IsEmpty() {
-		message.Headers.Id = MessageId{*f.messagePrefix, atomic.AddUint32(&f.messageIdx, 1)}
+		message.Headers.Id = MessageId{f.messagePrefix, atomic.AddUint32(&f.messageIdx, 1)}
 	}
 }
 
@@ -92,7 +92,7 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 			return nil, err
 		}
 
-		// secure conn does not c
+		// secure conn does not do crc
 		c.frameRCfg.CheckFrameHeaderCRC = false
 		c.frameRCfg.CheckFrameBodyCRC = false
 		c.frameWCfg.FrameHeaderCRC = false

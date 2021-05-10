@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/go-ole/go-ole"
 	"github.com/tg123/phabrik/serialization"
 )
 
@@ -19,8 +18,7 @@ func (m MessageId) IsEmpty() bool {
 }
 
 func (m MessageId) String() string {
-	g := ole.GUID(m.Id)
-	return fmt.Sprintf("%v:%v", g.String(), m.Index)
+	return fmt.Sprintf("%v:%v", m.Id.String(), m.Index)
 }
 
 type MessageHeaders struct {

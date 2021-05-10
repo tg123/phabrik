@@ -196,7 +196,7 @@ func TestBasicVersioningChildReadBase(t *testing.T) {
 	object1.Bool = false
 	object1.Short = 999
 	object1.Ulong = 0xDDDD
-	object1.Guid = *MustNewGuidV4()
+	object1.Guid = MustNewGuidV4()
 
 	var object2 BasicObjectVersion
 
@@ -471,7 +471,7 @@ func TestObjectWithArraysVersioningV2ToV1(t *testing.T) {
 	fill(&object1.DoubleArray, 20, float64(-5.33))
 
 	for i := 0; i < 13; i++ {
-		object1.GuidArray = append(object1.GuidArray, *MustNewGuidV4())
+		object1.GuidArray = append(object1.GuidArray, MustNewGuidV4())
 	}
 
 	for i := 0; i < 3; i++ {
