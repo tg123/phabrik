@@ -21,7 +21,7 @@ const (
 	securityProviderLast      securityProvider = 0x4 // Maximum size for this enum is 3 bits.
 )
 
-type tcpframeheader struct {
+type frameheader struct {
 	FrameLength          uint32
 	SecurityProviderMask uint8
 	FrameHeaderCRC       uint8
@@ -29,22 +29,22 @@ type tcpframeheader struct {
 	FrameBodyCRC         uint32
 }
 
-var sizeOfTcpframeheader = binary.Size(tcpframeheader{})
+var sizeOfFrameheader = binary.Size(frameheader{})
 
 type frameReadConfig struct {
 	CheckFrameHeaderCRC bool
 	CheckFrameBodyCRC   bool
 }
 
-func nextTCPFrame(stream io.Reader, config frameReadConfig) (*tcpframeheader, []byte, error) {
-	header := tcpframeheader{}
+func nextFrame(stream io.Reader, config frameReadConfig) (*frameheader, []byte, error) {
+	header := frameheader{}
 	err := binary.Read(stream, binary.LittleEndian, &header)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var b bytes.Buffer
-	err = binary.Write(&b, binary.LittleEndian, &tcpframeheader{
+	err = binary.Write(&b, binary.LittleEndian, &frameheader{
 		FrameLength:          header.FrameLength,
 		SecurityProviderMask: header.SecurityProviderMask,
 		HeaderLength:         header.HeaderLength,
@@ -83,14 +83,14 @@ type frameWriteConfig struct {
 	FrameBodyCRC         bool
 }
 
-func writeMessageWithTCPFrame(w io.Writer, message *Message, config frameWriteConfig) error {
+func writeMessageWithFrame(w io.Writer, message *Message, config frameWriteConfig) error {
 	headerLen, msg, err := message.marshal()
 	if err != nil {
 		return err
 	}
 
-	tcpheader := &tcpframeheader{
-		FrameLength:          uint32(sizeOfTcpframeheader + len(msg)),
+	tcpheader := &frameheader{
+		FrameLength:          uint32(sizeOfFrameheader + len(msg)),
 		SecurityProviderMask: uint8(config.SecurityProviderMask),
 		FrameHeaderCRC:       0,
 		HeaderLength:         uint16(headerLen),

@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"crypto/tls"
 	"net"
-	"sync"
 	"time"
 )
 
 type fabricSecureConn struct {
 	rawconn            net.Conn
-	rwlock             sync.RWMutex
 	handshakeCompleted bool
 	negoSend           bool
 	rbuf               bytes.Buffer
@@ -37,14 +35,10 @@ func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls
 }
 
 func (c *fabricSecureConn) handshakeComplete() bool {
-	c.rwlock.RLock()
-	defer c.rwlock.RUnlock()
 	return c.handshakeCompleted
 }
 
 func (c *fabricSecureConn) markHandshakeComplete() {
-	c.rwlock.Lock()
-	defer c.rwlock.Unlock()
 	c.handshakeCompleted = true
 }
 
@@ -52,7 +46,7 @@ func (c *fabricSecureConn) Read(b []byte) (n int, err error) {
 	if c.rbuf.Len() > 0 {
 		return c.rbuf.Read(b)
 	} else if !c.handshakeComplete() {
-		tcpheader, tcpbody, err := nextTCPFrame(c.rawconn, c.frameRCfg)
+		tcpheader, tcpbody, err := nextFrame(c.rawconn, c.frameRCfg)
 		if err != nil {
 			return 0, err
 		}
@@ -80,7 +74,7 @@ func (c *fabricSecureConn) Write(b []byte) (n int, err error) {
 			}
 		}
 
-		if writeMessageWithTCPFrame(c.rawconn, msg, c.frameWCfg); err != nil {
+		if writeMessageWithFrame(c.rawconn, msg, c.frameWCfg); err != nil {
 			return 0, err
 		}
 
