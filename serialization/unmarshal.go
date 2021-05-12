@@ -21,18 +21,6 @@ func (s *decodeState) ReadCompressedUInt32() (uint32, error) {
 	return s.readCompressedUInt32()
 }
 
-func IsEmptyMeta(meta FabricSerializationType) bool {
-	return meta&FabricSerializationTypeEmptyValueBit > 0
-}
-
-func IsArrayMeta(meta FabricSerializationType) bool {
-	return meta&FabricSerializationTypeArray > 0
-}
-
-func IsBaseMeta(meta, base FabricSerializationType) bool {
-	return (meta & FabricSerializationTypeBaseTypeMask) == base
-}
-
 // func (s *decodeState) dumpCurrentPos() {
 // 	c, _ := s.inner.Seek(0, io.SeekCurrent)
 // 	x := make([]byte, 10)

@@ -1,5 +1,7 @@
 package serialization
 
+import "reflect"
+
 type FabricSerializationType uint8
 
 const (
@@ -38,3 +40,50 @@ const (
 
 	FabricSerializationTypeNotAMeta FabricSerializationType = 0xFF
 )
+
+func IsEmptyMeta(meta FabricSerializationType) bool {
+	return meta&FabricSerializationTypeEmptyValueBit > 0
+}
+
+func IsArrayMeta(meta FabricSerializationType) bool {
+	return meta&FabricSerializationTypeArray > 0
+}
+
+func IsBaseMeta(meta, base FabricSerializationType) bool {
+	return (meta & FabricSerializationTypeBaseTypeMask) == base
+}
+
+func kindToFabricSerializationType(kind reflect.Kind) FabricSerializationType {
+	switch kind {
+	case reflect.Uint8:
+		return FabricSerializationTypeUChar
+	case reflect.Int8:
+		return FabricSerializationTypeChar
+	case reflect.Uint16:
+		return FabricSerializationTypeUShort
+	case reflect.Uint32:
+		return FabricSerializationTypeUInt32
+	case reflect.Uint64:
+		return FabricSerializationTypeUInt64
+	case reflect.Int16:
+		return FabricSerializationTypeShort
+	case reflect.Int32:
+		return FabricSerializationTypeInt32
+	case reflect.Int64:
+		return FabricSerializationTypeInt64
+	case reflect.Float32, reflect.Float64:
+		return FabricSerializationTypeDouble
+	case reflect.Bool:
+		return FabricSerializationTypeBool
+	case reflect.String:
+		return FabricSerializationTypeWString
+	case reflect.Struct:
+		return FabricSerializationTypeObject
+	case reflect.Ptr:
+		return FabricSerializationTypePointer
+	default:
+	}
+
+	// not support
+	return FabricSerializationTypeNotAMeta
+}

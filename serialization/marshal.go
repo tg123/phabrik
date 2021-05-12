@@ -86,41 +86,6 @@ func (s *encodeState) objectScopeEnd() error {
 	return nil
 }
 
-func kindToFabricSerializationType(kind reflect.Kind) FabricSerializationType {
-	switch kind {
-	case reflect.Uint8:
-		return FabricSerializationTypeUChar
-	case reflect.Int8:
-		return FabricSerializationTypeChar
-	case reflect.Uint16:
-		return FabricSerializationTypeUShort
-	case reflect.Uint32:
-		return FabricSerializationTypeUInt32
-	case reflect.Uint64:
-		return FabricSerializationTypeUInt64
-	case reflect.Int16:
-		return FabricSerializationTypeShort
-	case reflect.Int32:
-		return FabricSerializationTypeInt32
-	case reflect.Int64:
-		return FabricSerializationTypeInt64
-	case reflect.Float32, reflect.Float64:
-		return FabricSerializationTypeDouble
-	case reflect.Bool:
-		return FabricSerializationTypeBool
-	case reflect.String:
-		return FabricSerializationTypeWString
-	case reflect.Struct:
-		return FabricSerializationTypeObject
-	case reflect.Ptr:
-		return FabricSerializationTypePointer
-	default:
-	}
-
-	// not support
-	return FabricSerializationTypeNotAMeta
-}
-
 func (s *encodeState) writeTypeMeta(meta FabricSerializationType) error {
 	return s.buf.WriteByte(byte(meta))
 }
@@ -134,7 +99,9 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeBoolFalse)
 		}
 
-	case reflect.Uint8, reflect.Int8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Uint8, reflect.Int8, reflect.Uint16, reflect.Uint32,
+		reflect.Uint64, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Float32, reflect.Float64:
 
 		basetyp := kindToFabricSerializationType(rv.Kind())
 
@@ -143,8 +110,6 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 		}
 
 		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | basetyp)
-	case reflect.Float32, reflect.Float64:
-		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeDouble)
 	case reflect.String:
 		return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeArray | FabricSerializationTypeWString)
 	case reflect.Ptr:
