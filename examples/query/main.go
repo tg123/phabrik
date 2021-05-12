@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
@@ -70,7 +69,7 @@ func main() {
 		},
 	}
 
-	c, err := transport.Dial(os.Args[1], transport.Config{
+	c, err := transport.Dial("tcp", os.Args[1], transport.Config{
 		TLS: tlsconf,
 	})
 
@@ -81,7 +80,7 @@ func main() {
 	defer c.Close()
 
 	go func() {
-		log.Println("loop error", c.Run(context.Background()))
+		log.Println("loop error", c.Wait())
 	}()
 
 	n := naming.NamingClient{c}

@@ -36,6 +36,16 @@ func netPipe() (net.Conn, net.Conn, error) {
 	return c1, c2, nil
 }
 
+func mustTestConnection(t *testing.T, conn net.Conn) *connection {
+	c, err := newConnection()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.conn = conn
+	return c
+}
+
 func TestBasicMessage(t *testing.T) {
 	p1, p2, err := netPipe()
 	if err != nil {
@@ -44,17 +54,14 @@ func TestBasicMessage(t *testing.T) {
 	defer p1.Close()
 	defer p2.Close()
 
-	c1, err := Connect(p1, Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	c1 := mustTestConnection(t, p1)
 
 	go func() {
 		msg := &Message{}
 		msg.Headers.Action = "TEST"
 		msg.Headers.Actor = MessageActorTypeGenericTestActor
 		msg.Body = []byte{1, 2, 3, 4}
-		err := c1.SendOneWay(context.Background(), msg)
+		err := c1.SendOneWay(msg)
 		if err != nil {
 			t.Error(err)
 		}
@@ -90,12 +97,12 @@ func TestRequestMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go c.Run(context.Background())
+	go c.Wait()
 
 	// fake server by just handler
 	s, err := Connect(p2, Config{
-		MessageHandlers: map[MessageActorType]MessageHandler{
-			MessageActorTypeGenericTestActor: func(client *Client, bam *ByteArrayMessage) {
+		MessageCallbacks: map[MessageActorType]MessageCallback{
+			MessageActorTypeGenericTestActor: func(client Conn, bam *ByteArrayMessage) {
 
 				assert.Equal(t, "TEST", bam.Headers.Action)
 				assert.Equal(t, MessageActorTypeGenericTestActor, bam.Headers.Actor)
@@ -106,7 +113,7 @@ func TestRequestMessage(t *testing.T) {
 				msg.Headers.Action = "TEST_REPLY"
 				msg.Headers.Actor = MessageActorTypeGenericTestActor
 				msg.Body = []byte{4, 3, 2, 1}
-				err := client.SendOneWay(context.Background(), msg)
+				err := client.SendOneWay(msg)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -118,7 +125,7 @@ func TestRequestMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go s.Run(context.Background())
+	go s.Wait()
 
 	{
 		msg := &Message{}
