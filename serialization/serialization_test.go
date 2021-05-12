@@ -84,6 +84,39 @@ func marshalAndUnmarshal(t *testing.T, from, to interface{}) {
 	}
 }
 
+func TestMapSerialization(t *testing.T) {
+	type mapObj struct {
+		Map  map[string]int32
+		Map2 map[int32]string
+	}
+
+	{
+		var object mapObj
+		var object2 mapObj
+		marshalAndUnmarshal(t, &object, &object2)
+		assert.Equal(t, object, object2)
+	}
+
+	{
+		var object mapObj
+		object.Map = map[string]int32{
+			"1": 1,
+			"2": 2,
+			"3": 3,
+		}
+
+		object.Map2 = map[int32]string{
+			1: "1",
+			2: "2",
+			3: "3",
+		}
+
+		var object2 mapObj
+		marshalAndUnmarshal(t, &object, &object2)
+		assert.Equal(t, object, object2)
+	}
+}
+
 func TestBasicSerialization(t *testing.T) {
 	var object BasicObject
 
@@ -107,7 +140,6 @@ func TestBasicSerialization(t *testing.T) {
 	object.Guid = GUID{0x14e4f405, 0xba48, 0x4b51, [8]byte{0x80, 0x84, 0xb, 0x6c, 0x55, 0x23, 0xf2, 0x9e}}
 
 	{
-
 		var object2 BasicObject
 		marshalAndUnmarshal(t, &object, &object2)
 		assert.Equal(t, object, object2)
