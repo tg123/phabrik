@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -233,4 +234,39 @@ func TestMessageCRC(t *testing.T) {
 		}
 	})
 
+}
+
+func TestCancelRequest(t *testing.T) {
+	p1, p2, err := netPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p1.Close()
+	defer p2.Close()
+
+	c := mustTestConnection(t, p1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan int)
+	go func() {
+		st := time.Now()
+		_, err := c.RequestReply(ctx, &Message{})
+		if err != ctx.Err() {
+			t.Error("not cancel error")
+		} else if err == nil {
+			t.Errorf("should return err")
+		}
+
+		if time.Since(st) < 1*time.Second {
+			t.Errorf("should wait at least 1s")
+		}
+
+		done <- 1
+	}()
+
+	time.Sleep(1 * time.Second)
+	cancel()
+
+	<-done
 }
