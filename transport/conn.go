@@ -14,15 +14,11 @@ import (
 
 type MessageCallback func(Conn, *ByteArrayMessage)
 
-type MessageHandler interface {
-	SetMessageCallback(actor MessageActorType, h MessageCallback)
-}
-
 type Config struct {
-	MessageCallbacks map[MessageActorType]MessageCallback
-	TLS              *tls.Config
-	FrameHeaderCRC   bool
-	FrameBodyCRC     bool
+	MessageCallback MessageCallback
+	TLS             *tls.Config
+	FrameHeaderCRC  bool
+	FrameBodyCRC    bool
 }
 
 type Conn interface {
@@ -36,11 +32,10 @@ type Conn interface {
 }
 
 type connection struct {
-	handlerLock      sync.Mutex
-	messageCallbacks map[MessageActorType]MessageCallback
-	conn             net.Conn
-	requestTable     sync.Map
-	msgfac           *messageFactory
+	messageCallback MessageCallback
+	conn            net.Conn
+	requestTable    sync.Map
+	msgfac          *messageFactory
 
 	frameRCfg frameReadConfig
 	frameWCfg frameWriteConfig
@@ -55,8 +50,7 @@ func newConnection() (*connection, error) {
 	}
 
 	c := &connection{
-		msgfac:           mf,
-		messageCallbacks: make(map[MessageActorType]MessageCallback),
+		msgfac: mf,
 	}
 
 	c.frameWCfg.SecurityProviderMask = securityProviderNone
@@ -64,12 +58,6 @@ func newConnection() (*connection, error) {
 	c.frameWCfg.FrameHeaderCRC = true
 
 	return c, nil
-}
-
-func (c *connection) initHandlers(handlers map[MessageActorType]MessageCallback) {
-	for k, v := range handlers {
-		c.messageCallbacks[k] = v
-	}
 }
 
 func (c *connection) setTls() {
@@ -80,27 +68,17 @@ func (c *connection) setTls() {
 	c.frameWCfg.SecurityProviderMask = securityProviderSsl
 }
 
-func (c *connection) SetMessageCallback(actor MessageActorType, h MessageCallback) {
-	c.handlerLock.Lock()
-	defer c.handlerLock.Unlock()
-
-	if h == nil {
-		delete(c.messageCallbacks, actor)
-	} else {
-		c.messageCallbacks[actor] = h
-	}
-}
-
 func (c *connection) Close() error {
+	err := c.conn.Close()
 	c.requestTable.Range(func(key, value interface{}) bool {
 		if ch, ok := value.(chan *ByteArrayMessage); ok {
-			ch <- nil
+			close(ch)
 		}
 
 		return true
 	})
 
-	return c.conn.Close()
+	return err
 }
 
 func (c *connection) handleTransportMessage(msg *ByteArrayMessage) error {
@@ -187,11 +165,9 @@ func (c *connection) Wait() error {
 				log.Printf("unknown reply %v", headers.RelatesTo)
 			}
 		} else {
-			c.handlerLock.Lock()
-			if h, ok := c.messageCallbacks[headers.Actor]; ok {
-				go h(c, msg)
+			if c.messageCallback != nil {
+				c.messageCallback(c, msg)
 			}
-			c.handlerLock.Unlock()
 		}
 	}
 }

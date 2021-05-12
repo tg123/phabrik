@@ -69,7 +69,7 @@ func main() {
 		},
 	}
 
-	c, err := transport.Dial("tcp", os.Args[1], transport.Config{
+	c, err := transport.DialTCP(os.Args[1], transport.Config{
 		TLS: tlsconf,
 	})
 

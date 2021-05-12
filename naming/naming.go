@@ -33,7 +33,7 @@ func (a ActivityId) String() string {
 // 	})
 // }
 
-func newNamingMessage(action string) (*transport.Message, error) {
+func NewNamingMessage(action string) (*transport.Message, error) {
 	activityId, err := serialization.NewGuidV4()
 
 	if err != nil {
@@ -78,7 +78,7 @@ type GatewayDescription struct {
 }
 
 func (n *NamingClient) Ping() (*GatewayDescription, error) {
-	msg, err := newNamingMessage("PingRequest")
+	msg, err := NewNamingMessage("PingRequest")
 
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ type ApplicationQueryResult struct {
 
 func (n *NamingClient) GetApplicationList(filter string) ([]ApplicationQueryResult, error) {
 
-	msg, err := newNamingMessage("QueryRequest")
+	msg, err := NewNamingMessage("QueryRequest")
 	if err != nil {
 		return nil, err
 	}

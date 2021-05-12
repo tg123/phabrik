@@ -6,11 +6,10 @@ import (
 
 type Client struct {
 	Conn
-	MessageHandler
 }
 
-func Dial(network, addr string, config Config) (*Client, error) {
-	conn, err := net.Dial(network, addr)
+func DialTCP(addr string, config Config) (*Client, error) {
+	conn, err := net.Dial("tcp", addr)
 
 	if err != nil {
 		return nil, err
@@ -26,7 +25,7 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 		return nil, err
 	}
 
-	c.initHandlers(config.MessageCallbacks)
+	c.messageCallback = config.MessageCallback
 
 	if config.TLS != nil {
 		tlsconn, err := createTlsConn(conn, c.msgfac, config.TLS)
@@ -48,7 +47,6 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 	}
 
 	return &Client{
-		Conn:           c,
-		MessageHandler: c,
+		Conn: c,
 	}, nil
 }

@@ -101,23 +101,23 @@ func TestRequestMessage(t *testing.T) {
 
 	// fake server by just handler
 	s, err := Connect(p2, Config{
-		MessageCallbacks: map[MessageActorType]MessageCallback{
-			MessageActorTypeGenericTestActor: func(client Conn, bam *ByteArrayMessage) {
+		MessageCallback: func(client Conn, bam *ByteArrayMessage) {
+			if bam.Headers.Actor != MessageActorTypeGenericTestActor {
+				return
+			}
 
-				assert.Equal(t, "TEST", bam.Headers.Action)
-				assert.Equal(t, MessageActorTypeGenericTestActor, bam.Headers.Actor)
-				assert.Equal(t, []byte{1, 2, 3, 4}, bam.Body)
+			assert.Equal(t, "TEST", bam.Headers.Action)
+			assert.Equal(t, []byte{1, 2, 3, 4}, bam.Body)
 
-				msg := &Message{}
-				msg.Headers.RelatesTo = bam.Headers.Id
-				msg.Headers.Action = "TEST_REPLY"
-				msg.Headers.Actor = MessageActorTypeGenericTestActor
-				msg.Body = []byte{4, 3, 2, 1}
-				err := client.SendOneWay(msg)
-				if err != nil {
-					t.Fatal(err)
-				}
-			},
+			msg := &Message{}
+			msg.Headers.RelatesTo = bam.Headers.Id
+			msg.Headers.Action = "TEST_REPLY"
+			msg.Headers.Actor = MessageActorTypeGenericTestActor
+			msg.Body = []byte{4, 3, 2, 1}
+			err := client.SendOneWay(msg)
+			if err != nil {
+				t.Fatal(err)
+			}
 		},
 	})
 
