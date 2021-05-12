@@ -1,17 +1,44 @@
+// +build windows
+
 package main
 
 import (
+	"crypto/sha1"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/tg123/phabrik/examples"
 	"github.com/tg123/phabrik/naming"
 	"github.com/tg123/phabrik/serialization"
 	"github.com/tg123/phabrik/transport"
 )
 
 func main() {
+	// usage powershellserver <listen address> <server thumbprint>
 
-	s, err := transport.ListenTCP("127.0.0.1:9998", transport.Config{
+	cert, err := examples.FindCert(os.Args[2])
+	if err != nil {
+		panic(err)
+	}
+
+	tlsconf := &tls.Config{
+		Certificates: []tls.Certificate{*cert},
+		ClientAuth:   tls.RequestClientCert,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			for _, rawCert := range rawCerts {
+				thumb := fmt.Sprintf("%x", sha1.Sum(rawCert))
+				fmt.Println("Client thumbprint", thumb)
+			}
+
+			return nil
+		},
+	}
+
+	s, err := transport.ListenTCP(os.Args[1], transport.Config{
+		TLS: tlsconf,
 		MessageCallback: func(c transport.Conn, bam *transport.ByteArrayMessage) {
 			switch bam.Headers.Actor {
 			case transport.MessageActorTypeNamingGateway:

@@ -28,7 +28,7 @@ func Connect(conn net.Conn, config Config) (*Client, error) {
 	c.messageCallback = config.MessageCallback
 
 	if config.TLS != nil {
-		tlsconn, err := createTlsConn(conn, c.msgfac, config.TLS)
+		tlsconn, err := createTlsClientConn(conn, c.msgfac, config.TLS)
 		if err != nil {
 			return nil, err
 		}

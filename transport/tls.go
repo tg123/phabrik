@@ -17,21 +17,29 @@ type fabricSecureConn struct {
 	frameWCfg          frameWriteConfig
 }
 
-func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
-	rawssl := &fabricSecureConn{
+func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config, factory func(conn net.Conn, config *tls.Config) *tls.Conn) (*tls.Conn, error) {
+	rawtls := &fabricSecureConn{
 		rawconn: conn,
 		mf:      mf,
 	}
-	rawssl.frameWCfg.SecurityProviderMask = securityProviderSsl
-	sslconn := tls.Client(rawssl, tlsconf)
+	rawtls.frameWCfg.SecurityProviderMask = securityProviderSsl
+	tlsconn := factory(rawtls, tlsconf)
 
-	if err := sslconn.Handshake(); err != nil {
+	if err := tlsconn.Handshake(); err != nil {
 		return nil, err
 	}
 
-	rawssl.markHandshakeComplete()
+	rawtls.markHandshakeComplete()
 
-	return sslconn, nil
+	return tlsconn, nil
+}
+
+func createTlsClientConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
+	return createTlsConn(conn, mf, tlsconf, tls.Client)
+}
+
+func createTlsServerConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
+	return createTlsConn(conn, mf, tlsconf, tls.Server)
 }
 
 func (c *fabricSecureConn) handshakeComplete() bool {

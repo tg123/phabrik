@@ -10,6 +10,7 @@ import (
 type Server struct {
 	listener        net.Listener
 	messageCallback MessageCallback
+	config          Config
 }
 
 func ListenTCP(laddr string, config Config) (*Server, error) {
@@ -22,13 +23,10 @@ func ListenTCP(laddr string, config Config) (*Server, error) {
 }
 
 func Listen(l net.Listener, config Config) (*Server, error) {
-	if config.TLS != nil {
-		panic("not impl")
-	}
-
 	return &Server{
 		listener:        l,
 		messageCallback: config.MessageCallback,
+		config:          config,
 	}, nil
 }
 
@@ -47,7 +45,18 @@ func (s *Server) handle(conn net.Conn) error {
 	}
 
 	c.messageCallback = s.onMessage
-	c.conn = conn
+
+	if s.config.TLS != nil {
+		tlsconn, err := createTlsServerConn(conn, c.msgfac, s.config.TLS)
+		if err != nil {
+			return err
+		}
+
+		c.setTls()
+		c.conn = tlsconn
+	} else {
+		c.conn = conn
+	}
 
 	nonce, err := serialization.NewGuidV4()
 	if err != nil {

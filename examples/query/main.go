@@ -9,49 +9,15 @@ import (
 	"log"
 	"os"
 
-	"github.com/github/certstore"
+	"github.com/tg123/phabrik/examples"
 	"github.com/tg123/phabrik/naming"
 	"github.com/tg123/phabrik/transport"
 )
 
-func findCert(thumbprint string) (*tls.Certificate, error) {
-	store, err := certstore.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer store.Close()
-
-	idents, err := store.Identities()
-	if err != nil {
-		return nil, err
-	}
-
-	var cert tls.Certificate
-	for _, i := range idents {
-		c, err := i.Certificate()
-
-		if err != nil {
-			continue
-		}
-
-		thumb := fmt.Sprintf("%x", sha1.Sum(c.Raw))
-		if thumb == thumbprint {
-			s, err := i.Signer()
-			if err != nil {
-				return nil, err
-			}
-			cert.Certificate = [][]byte{c.Raw}
-			cert.PrivateKey = s
-		}
-	}
-
-	return &cert, nil
-}
-
 func main() {
 	// usage query <service fabric endpoint> <client thumbprint>
 
-	cert, err := findCert(os.Args[2])
+	cert, err := examples.FindCert(os.Args[2])
 	if err != nil {
 		panic(err)
 	}
