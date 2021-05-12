@@ -151,7 +151,7 @@ func (c *connection) Wait() error {
 			Body:    body,
 		}
 
-		if msg.Headers.Actor == MessageActorTypeEntreeServiceTransport {
+		if msg.Headers.Actor == MessageActorTypeTransport {
 			go c.handleTransportMessage(msg)
 			continue
 		}

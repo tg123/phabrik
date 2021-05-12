@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tg123/phabrik/serialization"
 )
 
 // https://github.com/golang/crypto/blob/38f3c27a63bf8d9928ce230b01cab346d1756e88/ssh/handshake_test.go#L42
@@ -269,4 +270,90 @@ func TestCancelRequest(t *testing.T) {
 	cancel()
 
 	<-done
+}
+
+func TestTransportMessages(t *testing.T) {
+	p1, p2, err := netPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p1.Close()
+	defer p2.Close()
+
+	c0, err := Connect(p1, Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go c0.Wait()
+
+	c := c0.Conn.(*connection)
+
+	t.Run("check init msg", func(t *testing.T) {
+
+		frameheader, framebody, err := nextFrame(p2, c.frameRCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		headers, err := parseFabricMessageHeaders(bytes.NewBuffer(framebody[:frameheader.HeaderLength]))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, MessageActorTypeTransport, headers.Actor)
+
+		b := transportInitMessageBody{}
+		if err := serialization.Unmarshal(framebody[frameheader.HeaderLength:], &b); err != nil {
+			t.Fatal(err)
+		}
+
+		// default flags
+		assert.Equal(t, true, b.HeartbeatSupported)
+		assert.Equal(t, uint32(1), b.ConnectionFeatureFlags)
+	})
+
+	go func() {
+		var b struct {
+			HeartbeatTimeTick int64
+		}
+
+		b.HeartbeatTimeTick = 1234567
+
+		msg := c.msgfac.newMessage()
+		msg.Headers.Actor = MessageActorTypeTransport
+		msg.Headers.HighPriority = true
+		msg.Headers.Action = "HeartbeatRequest"
+		msg.Body = &b
+
+		if err := writeMessageWithFrame(p2, msg, c.frameWCfg); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	t.Run("check heartbeat msg", func(t *testing.T) {
+
+		frameheader, framebody, err := nextFrame(p2, c.frameRCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		headers, err := parseFabricMessageHeaders(bytes.NewBuffer(framebody[:frameheader.HeaderLength]))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, MessageActorTypeTransport, headers.Actor)
+		assert.Equal(t, "HeartbeatResponse", headers.Action)
+
+		var b struct {
+			HeartbeatTimeTick int64
+		}
+
+		if err := serialization.Unmarshal(framebody[frameheader.HeaderLength:], &b); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, int64(1234567), b.HeartbeatTimeTick)
+	})
 }
