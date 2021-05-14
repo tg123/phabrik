@@ -280,18 +280,18 @@ func TestTransportMessages(t *testing.T) {
 	defer p1.Close()
 	defer p2.Close()
 
-	c0, err := Connect(p1, Config{})
+	c1i, err := Connect(p1, Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	go c0.Wait()
+	go c1i.Wait()
 
-	c := c0.Conn.(*connection)
+	c1 := c1i.Conn.(*connection)
 
 	t.Run("check init msg", func(t *testing.T) {
 
-		frameheader, framebody, err := nextFrame(p2, c.frameRCfg)
+		frameheader, framebody, err := nextFrame(p2, c1.frameRCfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -314,26 +314,24 @@ func TestTransportMessages(t *testing.T) {
 	})
 
 	go func() {
-		var b struct {
-			HeartbeatTimeTick int64
-		}
+		var b heartbeat
 
 		b.HeartbeatTimeTick = 1234567
 
-		msg := c.msgfac.newMessage()
+		msg := c1.msgfac.newMessage()
 		msg.Headers.Actor = MessageActorTypeTransport
 		msg.Headers.HighPriority = true
 		msg.Headers.Action = "HeartbeatRequest"
 		msg.Body = &b
 
-		if err := writeMessageWithFrame(p2, msg, c.frameWCfg); err != nil {
+		if err := writeMessageWithFrame(p2, msg, c1.frameWCfg); err != nil {
 			t.Error(err)
 		}
 	}()
 
 	t.Run("check heartbeat msg", func(t *testing.T) {
 
-		frameheader, framebody, err := nextFrame(p2, c.frameRCfg)
+		frameheader, framebody, err := nextFrame(p2, c1.frameRCfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -346,9 +344,7 @@ func TestTransportMessages(t *testing.T) {
 		assert.Equal(t, MessageActorTypeTransport, headers.Actor)
 		assert.Equal(t, "HeartbeatResponse", headers.Action)
 
-		var b struct {
-			HeartbeatTimeTick int64
-		}
+		var b heartbeat
 
 		if err := serialization.Unmarshal(framebody[frameheader.HeaderLength:], &b); err != nil {
 			t.Fatal(err)
@@ -356,4 +352,50 @@ func TestTransportMessages(t *testing.T) {
 
 		assert.Equal(t, int64(1234567), b.HeartbeatTimeTick)
 	})
+
+	t.Run("heartbeat cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		done := make(chan int)
+
+		go func() {
+
+			st := time.Now()
+			_, err := c1.RequestReply(ctx, &Message{})
+			if err != ctx.Err() {
+				t.Error("not cancel error")
+			} else if err == nil {
+				t.Errorf("should return err")
+			}
+
+			if time.Since(st) < 1*time.Second {
+				t.Errorf("should wait at least 1s")
+			}
+
+			done <- 1
+
+		}()
+
+		time.Sleep(1 * time.Second)
+		cancel()
+
+		<-done
+	})
+
+	t.Run("heartbeat duration", func(t *testing.T) {
+		c2, err := Connect(p2, Config{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		go c2.Wait()
+
+		d, err := c2.Ping(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Greater(t, d, time.Duration(0))
+	})
+
 }

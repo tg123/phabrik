@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/tg123/phabrik/serialization"
 )
@@ -26,6 +27,8 @@ type Conn interface {
 
 	SendOneWay(message *Message) error
 
+	Ping(ctx context.Context) (time.Duration, error)
+
 	Wait() error
 
 	Close() error
@@ -35,12 +38,12 @@ type connection struct {
 	messageCallback MessageCallback
 	conn            net.Conn
 	requestTable    sync.Map
+	pinglock        sync.Mutex
+	pingCh          chan int64
 	msgfac          *messageFactory
 
 	frameRCfg frameReadConfig
 	frameWCfg frameWriteConfig
-
-	closed bool
 }
 
 func newConnection() (*connection, error) {
@@ -51,6 +54,7 @@ func newConnection() (*connection, error) {
 
 	c := &connection{
 		msgfac: mf,
+		pingCh: make(chan int64),
 	}
 
 	c.frameWCfg.SecurityProviderMask = securityProviderNone
@@ -81,29 +85,61 @@ func (c *connection) Close() error {
 	return err
 }
 
+type heartbeat struct {
+	HeartbeatTimeTick int64
+}
+
+func (c *connection) Ping(ctx context.Context) (time.Duration, error) {
+	c.pinglock.Lock()
+	defer c.pinglock.Unlock()
+
+	var b heartbeat
+	b.HeartbeatTimeTick = time.Now().UnixNano()
+
+	msg := c.msgfac.newMessage()
+	msg.Headers.Actor = MessageActorTypeTransport
+	msg.Headers.HighPriority = true
+	msg.Headers.Action = "HeartbeatRequest"
+	msg.Body = &b
+
+	err := c.SendOneWay(msg)
+	if err != nil {
+		return -1, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return -1, ctx.Err()
+	case t := <-c.pingCh:
+		if t != b.HeartbeatTimeTick {
+			return -1, fmt.Errorf("heartbeak time tick out of order")
+		}
+		return time.Since(time.Unix(0, t)), nil
+	}
+}
+
 func (c *connection) handleTransportMessage(msg *ByteArrayMessage) error {
 	switch msg.Headers.Action {
 	case "HeartbeatRequest":
-		var b struct {
-			HeartbeatTimeTick int64
+
+		resp := c.msgfac.newMessage()
+		resp.Headers.Actor = MessageActorTypeTransport
+		resp.Headers.HighPriority = true
+		resp.Headers.Action = "HeartbeatResponse"
+		resp.Body = msg.Body
+
+		err := c.SendOneWay(resp)
+		if err != nil {
+			return err
 		}
+	case "HeartbeatResponse":
+		var b heartbeat
 
 		if err := serialization.Unmarshal(msg.Body, &b); err != nil {
 			return err
 		}
 
-		{
-			msg := c.msgfac.newMessage()
-			msg.Headers.Actor = MessageActorTypeTransport
-			msg.Headers.HighPriority = true
-			msg.Headers.Action = "HeartbeatResponse"
-			msg.Body = &b
-
-			err := c.SendOneWay(msg)
-			if err != nil {
-				return err
-			}
-		}
+		c.pingCh <- b.HeartbeatTimeTick
 	default:
 	}
 	return nil
