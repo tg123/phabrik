@@ -46,6 +46,7 @@ type connection struct {
 	frameWCfg frameWriteConfig
 
 	closeOnce sync.Once
+	fatalerr  error
 }
 
 func newConnection() (*connection, error) {
@@ -194,9 +195,23 @@ func (c *connection) Wait() error {
 			Body:    body,
 		}
 
-		if msg.Headers.Actor == MessageActorTypeTransport {
+		if headers.Actor == MessageActorTypeTransport {
 			go c.handleTransportMessage(msg)
 			continue
+		}
+
+		// TODO support server side reject
+		if headers.Actor == MessageActorTypeTransportSendTarget && headers.Action == "ConnectionAuth" {
+			if headers.ErrorCode != FabricErrorCodeSuccess {
+				var b struct {
+					Message string
+				}
+
+				serialization.Unmarshal(body, &b) // ignore error
+				c.fatalerr = fmt.Errorf("connection auth failure, error code [%v], msg [%v]", headers.ErrorCode, b.Message)
+
+				return c.Close()
+			}
 		}
 
 		if !headers.RelatesTo.IsEmpty() {
@@ -216,11 +231,17 @@ func (c *connection) Wait() error {
 }
 
 func (c *connection) SendOneWay(message *Message) error {
+	if c.fatalerr != nil {
+		return c.fatalerr
+	}
 	c.msgfac.fillMessageId(message)
 	return writeMessageWithFrame(c.conn, message, c.frameWCfg)
 }
 
 func (c *connection) RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error) {
+	if c.fatalerr != nil {
+		return nil, c.fatalerr
+	}
 	c.msgfac.fillMessageId(message)
 	message.Headers.ExpectsReply = true
 	id := message.Headers.Id.String()
