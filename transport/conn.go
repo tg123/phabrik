@@ -44,6 +44,8 @@ type connection struct {
 
 	frameRCfg frameReadConfig
 	frameWCfg frameWriteConfig
+
+	closeOnce sync.Once
 }
 
 func newConnection() (*connection, error) {
@@ -74,12 +76,17 @@ func (c *connection) setTls() {
 
 func (c *connection) Close() error {
 	err := c.conn.Close()
-	c.requestTable.Range(func(key, value interface{}) bool {
-		if ch, ok := value.(chan *ByteArrayMessage); ok {
-			close(ch)
-		}
 
-		return true
+	c.closeOnce.Do(func() {
+		close(c.pingCh)
+
+		c.requestTable.Range(func(key, value interface{}) bool {
+			if ch, ok := value.(chan *ByteArrayMessage); ok {
+				close(ch)
+			}
+
+			return true
+		})
 	})
 
 	return err

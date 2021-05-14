@@ -247,29 +247,75 @@ func TestCancelRequest(t *testing.T) {
 
 	c := mustTestConnection(t, p1)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	t.Run("context cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
 
-	done := make(chan int)
-	go func() {
-		st := time.Now()
-		_, err := c.RequestReply(ctx, &Message{})
-		if err != ctx.Err() {
-			t.Error("not cancel error")
-		} else if err == nil {
-			t.Errorf("should return err")
+		done := make(chan int)
+		go func() {
+			st := time.Now()
+			_, err := c.RequestReply(ctx, &Message{})
+			if err != ctx.Err() {
+				t.Error("not cancel error")
+			} else if err == nil {
+				t.Errorf("should return err")
+			}
+
+			if time.Since(st) < 1*time.Second {
+				t.Errorf("should wait at least 1s")
+			}
+
+			done <- 1
+		}()
+
+		time.Sleep(1 * time.Second)
+		cancel()
+
+		<-done
+	})
+
+	t.Run("conn close", func(t *testing.T) {
+		done := make(chan int)
+		go func() {
+			st := time.Now()
+			_, err := c.RequestReply(context.Background(), &Message{})
+			if err == nil {
+				t.Errorf("should return err")
+			} else if err.Error() != "operation cancelled" {
+				t.Errorf("except operation cancelled got %v", err)
+			}
+
+			if time.Since(st) < 1*time.Second {
+				t.Errorf("should wait at least 1s")
+			}
+
+			done <- 1
+		}()
+
+		time.Sleep(1 * time.Second)
+
+		c.Close()
+
+		{
+			_, err := c.Ping(context.Background())
+			if err == nil {
+				t.Errorf("should return err after close")
+			}
+		}
+		{
+			_, err := c.RequestReply(context.Background(), &Message{})
+			if err == nil {
+				t.Errorf("should return err after close")
+			}
 		}
 
-		if time.Since(st) < 1*time.Second {
-			t.Errorf("should wait at least 1s")
-		}
+		// close multiple time to ensure not close channels twice
+		c.Close()
+		c.Close()
+		c.Close()
 
-		done <- 1
-	}()
+		<-done
+	})
 
-	time.Sleep(1 * time.Second)
-	cancel()
-
-	<-done
 }
 
 func TestTransportMessages(t *testing.T) {
