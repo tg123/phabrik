@@ -61,7 +61,7 @@ func nextFrame(r io.Reader, config frameReadConfig) (*frameheader, []byte, error
 		}
 	}
 
-	body := make([]byte, header.FrameLength-uint32(binary.Size(header)))
+	body := make([]byte, header.FrameLength-uint32(sizeOfFrameheader))
 
 	_, err = io.ReadFull(r, body)
 	if err != nil {

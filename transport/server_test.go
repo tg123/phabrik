@@ -133,38 +133,40 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 
 	go s.Serve()
 
-	c, err := DialTCP(s.listener.Addr().String(), Config{
-		TLS: &tls.Config{
-			InsecureSkipVerify: true,
-			Certificates:       []tls.Certificate{cert},
-			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				assert.Equal(t, cert.Certificate, rawCerts)
-				clientCertCallback = true
-				return nil
-			},
-		},
-	})
-	if err != nil {
-		t.Error(err)
-	}
-
-	go c.Wait()
-
 	{
-		msg := &Message{}
-		msg.Headers.Action = "TEST"
-		msg.Headers.Actor = MessageActorTypeGenericTestActor
-		msg.Body = []byte{1, 2, 3, 4}
-		reply, err := c.RequestReply(context.Background(), msg)
+		c, err := DialTCP(s.listener.Addr().String(), Config{
+			TLS: &tls.Config{
+				InsecureSkipVerify: true,
+				Certificates:       []tls.Certificate{cert},
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					assert.Equal(t, cert.Certificate, rawCerts)
+					clientCertCallback = true
+					return nil
+				},
+			},
+		})
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 
-		assert.Equal(t, "TEST_REPLY", reply.Headers.Action)
-		assert.Equal(t, MessageActorTypeGenericTestActor, reply.Headers.Actor)
-		assert.Equal(t, []byte{4, 3, 2, 1}, reply.Body)
-	}
+		go c.Wait()
 
-	assert.True(t, serverCertCallback)
-	assert.True(t, clientCertCallback)
+		{
+			msg := &Message{}
+			msg.Headers.Action = "TEST"
+			msg.Headers.Actor = MessageActorTypeGenericTestActor
+			msg.Body = []byte{1, 2, 3, 4}
+			reply, err := c.RequestReply(context.Background(), msg)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, "TEST_REPLY", reply.Headers.Action)
+			assert.Equal(t, MessageActorTypeGenericTestActor, reply.Headers.Actor)
+			assert.Equal(t, []byte{4, 3, 2, 1}, reply.Body)
+		}
+
+		assert.True(t, serverCertCallback)
+		assert.True(t, clientCertCallback)
+	}
 }
