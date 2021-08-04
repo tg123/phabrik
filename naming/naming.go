@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tg123/phabrik/common"
+	"github.com/tg123/phabrik/federation"
 	"github.com/tg123/phabrik/serialization"
 	"github.com/tg123/phabrik/transport"
 )
@@ -73,7 +75,7 @@ type NamingClient struct {
 
 type GatewayDescription struct {
 	Address      string
-	NodeInstance NodeInstance
+	NodeInstance federation.NodeInstance
 	NodeName     string
 }
 
@@ -115,11 +117,11 @@ func (n *NamingClient) Ping() (*GatewayDescription, error) {
 }
 
 type ApplicationQueryResult struct {
-	ApplicationName        Uri
+	ApplicationName        common.Uri
 	ApplicationTypeName    string
 	ApplicationTypeVersion string
-	ApplicationStatus      int32
-	HealthState            int32
+	ApplicationStatus      int64
+	HealthState            int64
 	ApplicationParameters  map[string]string
 }
 

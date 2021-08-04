@@ -58,7 +58,7 @@ func newMessageFactory() (*messageFactory, error) {
 
 func (f *messageFactory) newMessage() *Message {
 	msg := &Message{}
-	msg.Headers.customHeaders = make(map[MessageHeaderIdType]interface{})
+	msg.Headers.customHeaders = make(map[MessageHeaderIdType][]interface{})
 	f.fillMessageId(msg)
 
 	return msg

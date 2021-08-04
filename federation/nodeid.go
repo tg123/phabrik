@@ -1,11 +1,9 @@
-package naming
+package federation
 
 import (
-	"crypto/md5"
 	"encoding/binary"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/tg123/phabrik/serialization"
 )
@@ -27,32 +25,6 @@ var MinNodeID = NodeID{0, 0}
 
 func (n NodeID) String() string {
 	return fmt.Sprintf("%016x%016x", n.Hi, n.Lo)
-}
-
-// NodeIDFromHex convert string in 16 base from to NodeID
-func NodeIDFromHex(v string) (NodeID, error) {
-	u := NodeID{}
-
-	i, ok := new(big.Int).SetString(v, 16)
-
-	if !ok {
-		return u, fmt.Errorf("fail to convert %v to Uint128", v)
-	}
-
-	u.Lo = i.Uint64()
-	u.Hi = new(big.Int).Rsh(i, 64).Uint64()
-
-	return u, nil
-}
-
-// NodeIDFromMD5 hash any string into a NodeID using MD5
-func NodeIDFromMD5(v string) NodeID {
-	h := md5.Sum([]byte(v))
-
-	return NodeID{
-		binary.LittleEndian.Uint64(h[:8]),
-		binary.LittleEndian.Uint64(h[8:]),
-	}
 }
 
 // github.com/lukechampine/Uint128/

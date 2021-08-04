@@ -13,6 +13,10 @@ type decodeState struct {
 	inner *bytes.Reader
 }
 
+func (s *decodeState) ReadTypeMeta() (FabricSerializationType, error) {
+	return s.readTypeMeta()
+}
+
 func (s *decodeState) ReadBinary(v interface{}) error {
 	return binary.Read(s.inner, binary.LittleEndian, v)
 }

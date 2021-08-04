@@ -12,6 +12,7 @@ type Encoder interface {
 }
 
 type Decoder interface {
+	ReadTypeMeta() (FabricSerializationType, error)
 	ReadBinary(interface{}) error
 	ReadCompressedUInt32() (uint32, error)
 }

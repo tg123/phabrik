@@ -76,10 +76,10 @@ func (c *fabricSecureConn) Write(b []byte) (n int, err error) {
 		msg.Body = b
 
 		if !c.negoSend {
-			msg.Headers.customHeaders[MessageHeaderIdTypeSecurityNegotiation] = &securityNegotiationHeader{
+			msg.Headers.SetCustomHeader(MessageHeaderIdTypeSecurityNegotiation, &securityNegotiationHeader{
 				X509ExtraFramingEnabled:  true,
 				FramingProtectionEnabled: true, // here must be true to work on both windows and linux
-			}
+			})
 		}
 
 		if writeMessageWithFrame(c.rawconn, msg, c.frameWCfg); err != nil {

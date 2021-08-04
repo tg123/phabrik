@@ -1,6 +1,6 @@
-package naming
+package common
 
-type UriType int32
+type UriType int64
 
 const (
 	UriTypeAuthorityAbEmpty UriType = iota
@@ -9,7 +9,7 @@ const (
 	UriTypeEmpty
 )
 
-type UriHostType int32
+type UriHostType int64
 
 const (
 	UriHostTypeNone UriHostType = iota

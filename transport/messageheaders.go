@@ -36,7 +36,7 @@ type MessageHeaders struct {
 	HasFaultBody bool
 	RetryCount   int32
 
-	customHeaders map[MessageHeaderIdType]interface{}
+	customHeaders map[MessageHeaderIdType][]interface{}
 }
 
 type listenInstance struct {
@@ -62,18 +62,40 @@ func RegisterHeaderActivator(typ MessageHeaderIdType, activator HeaderTypeActiva
 	headerTypeActivators[typ] = activator
 }
 
-func (h *MessageHeaders) GetCustomHeader(typ MessageHeaderIdType) (interface{}, bool) {
-	header, ok := h.customHeaders[typ]
-	return header, ok
+func (h *MessageHeaders) GetCustomHeaders(typ MessageHeaderIdType) []interface{} {
+	return h.customHeaders[typ]
+}
+
+func (h *MessageHeaders) GetFirstCustomHeader(typ MessageHeaderIdType) (interface{}, bool) {
+	headers := h.customHeaders[typ]
+
+	if len(headers) > 0 {
+		return headers[0], true
+	}
+
+	return nil, false
 }
 
 func (h *MessageHeaders) SetCustomHeader(typ MessageHeaderIdType, header interface{}) bool {
 	if h.customHeaders == nil {
-		h.customHeaders = make(map[MessageHeaderIdType]interface{})
+		h.customHeaders = make(map[MessageHeaderIdType][]interface{})
 	}
 
 	if _, ok := h.customHeaders[typ]; !ok {
-		h.customHeaders[typ] = header
+		h.customHeaders[typ] = []interface{}{header}
+		return true
+	}
+
+	return false
+}
+
+func (h *MessageHeaders) AppendCustomHeader(typ MessageHeaderIdType, header ...interface{}) bool {
+	if h.customHeaders == nil {
+		h.customHeaders = make(map[MessageHeaderIdType][]interface{})
+	}
+
+	if _, ok := h.customHeaders[typ]; !ok {
+		h.customHeaders[typ] = append(h.customHeaders[typ], header...)
 		return true
 	}
 
@@ -163,8 +185,10 @@ func (h *MessageHeaders) writeTo(w io.Writer) error {
 	}
 
 	for k, v := range h.customHeaders {
-		if err := writeMessageHeader(w, k, v); err != nil {
-			return err
+		for _, ch := range v {
+			if err := writeMessageHeader(w, k, ch); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -216,7 +240,7 @@ func nextMessageHeader(stream io.Reader) (MessageHeaderIdType, []byte, error) {
 func parseFabricMessageHeaders(r io.Reader) (*MessageHeaders, error) {
 
 	headers := MessageHeaders{
-		customHeaders: make(map[MessageHeaderIdType]interface{}),
+		customHeaders: make(map[MessageHeaderIdType][]interface{}),
 	}
 
 	for {
@@ -231,11 +255,6 @@ func parseFabricMessageHeaders(r io.Reader) (*MessageHeaders, error) {
 		}
 
 		if id == MessageHeaderIdTypeInvalid {
-			continue
-		}
-
-		// only get first in c++ side
-		if _, ok := headers.customHeaders[id]; ok {
 			continue
 		}
 
@@ -329,10 +348,8 @@ func parseFabricMessageHeaders(r io.Reader) (*MessageHeaders, error) {
 					return nil, err
 				}
 
-				headers.customHeaders[id] = hv
+				headers.customHeaders[id] = append(headers.customHeaders[id], hv)
 			}
-
-			// log.Printf("unsupported msg header %v", id)
 		}
 	}
 

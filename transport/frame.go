@@ -89,6 +89,11 @@ func writeMessageWithFrame(w io.Writer, message *Message, config frameWriteConfi
 		return err
 	}
 
+	return writeFrame(w, headerLen, msg, config)
+}
+
+func writeFrame(w io.Writer, headerLen int, msg []byte, config frameWriteConfig) error {
+
 	tcpheader := &frameheader{
 		FrameLength:          uint32(sizeOfFrameheader + len(msg)),
 		SecurityProviderMask: uint8(config.SecurityProviderMask),
@@ -98,7 +103,7 @@ func writeMessageWithFrame(w io.Writer, message *Message, config frameWriteConfi
 	}
 
 	var b bytes.Buffer
-	err = binary.Write(&b, binary.LittleEndian, tcpheader)
+	err := binary.Write(&b, binary.LittleEndian, tcpheader)
 	if err != nil {
 		return err
 	}
