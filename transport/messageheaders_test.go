@@ -46,13 +46,13 @@ func TestMessageHeadersSerialization(t *testing.T) {
 	assert.Equal(t, h, *h2)
 
 	{
-		th, ok := h2.GetCustomHeader(MessageHeaderIdTypeTimeout)
+		th, ok := h2.GetFirstCustomHeader(MessageHeaderIdTypeTimeout)
 		assert.True(t, ok)
 		assert.Equal(t, &timeoutHeader{Timeout: 20 * time.Second}, th)
 	}
 
 	{
-		th, ok := h2.GetCustomHeader(MessageHeaderIdTypeCustomClientAuth)
+		th, ok := h2.GetFirstCustomHeader(MessageHeaderIdTypeCustomClientAuth)
 		assert.False(t, ok)
 		assert.Equal(t, nil, th)
 
