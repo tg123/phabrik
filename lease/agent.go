@@ -97,6 +97,10 @@ func NewAgent(config AgentConfig, listener net.Listener, dial Dialer) (*Agent, e
 	return &a, nil
 }
 
+func (a *Agent) Addr() net.Addr {
+	return a.listener.Addr()
+}
+
 func (a *Agent) Establish(addr string) (Session, error) {
 	s := leaseSession{
 		addr:          addr,

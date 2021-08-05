@@ -27,17 +27,6 @@ func (n NodeID) String() string {
 	return fmt.Sprintf("%016x%016x", n.Hi, n.Lo)
 }
 
-// github.com/lukechampine/Uint128/
-func (u uint128) cmp(v uint128) int {
-	if u == v {
-		return 0
-	} else if u.Hi < v.Hi || (u.Hi == v.Hi && u.Lo < v.Lo) {
-		return -1
-	} else {
-		return 1
-	}
-}
-
 type NodeInstance struct {
 	Id         NodeID
 	InstanceId uint64

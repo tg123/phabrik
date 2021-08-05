@@ -30,6 +30,10 @@ func Listen(l net.Listener, config Config) (*Server, error) {
 	}, nil
 }
 
+func (s *Server) Addr() net.Addr {
+	return s.listener.Addr()
+}
+
 func (s *Server) onMessage(conn Conn, msg *ByteArrayMessage) {
 	if s.messageCallback != nil {
 		go s.messageCallback(conn, msg)
@@ -73,6 +77,10 @@ func (s *Server) handle(conn net.Conn) error {
 	}
 
 	return c.Wait()
+}
+
+func (s *Server) SetMessageCallback(cb MessageCallback) {
+	s.messageCallback = cb
 }
 
 func (s *Server) Serve() error {
