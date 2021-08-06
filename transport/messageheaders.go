@@ -21,6 +21,16 @@ func (m MessageId) String() string {
 	return fmt.Sprintf("%v:%v", m.Id.String(), m.Index)
 }
 
+// var _ serialization.CustomMarshaler = (*MessageId)(nil)
+
+// func (r *MessageId) Marshal(s serialization.Encoder) error {
+// 	return nil
+// }
+
+// func (r *MessageId) Unmarshal(meta serialization.FabricSerializationType, s serialization.Decoder) error {
+// 	return nil
+// }
+
 type MessageHeaders struct {
 	Id        MessageId
 	RelatesTo MessageId

@@ -13,6 +13,10 @@ func init() {
 	transport.RegisterHeaderActivator(transport.MessageHeaderIdTypeFederationPartnerNode, func() interface{} {
 		return &FederationPartnerNodeHeader{}
 	})
+
+	transport.RegisterHeaderActivator(transport.MessageHeaderIdTypeRouting, func() interface{} {
+		return &RoutingHeader{}
+	})
 }
 
 type NodePhase int64
@@ -31,16 +35,8 @@ type RoutingToken struct {
 }
 
 type FederationPartnerNodeHeader struct {
-	Instance             NodeInstance // The node instance of the node which this information is of.
-	Phase                NodePhase    // The phase of the node.
-	Address              string       // The address of the node.
-	Token                RoutingToken // The token owned by this node.
-	LeaseAgentAddress    string       // The address of the lease agent for this node.
-	LeaseAgentInstanceId int64        // Instance of the lease agent.
-	EndToEnd             bool
-	NodeFaultDomainId    common.Uri // The fault domain setting of this node.
-	RingName             string
-	Flags                int32
+	PartnerNodeInfo
+	Flags int32
 }
 
 type BootingInfo struct {
@@ -65,4 +61,38 @@ type PToPHeader struct {
 	FromRing      string
 	ToRing        string
 	ExactInstance bool
+}
+
+type RoutingHeader struct {
+	From NodeInstance
+	To   NodeInstance
+	transport.MessageId
+	UseExactRouting bool
+	ExpectsReply    bool
+	Expiration      common.TimeSpan
+	RetryTimeout    common.TimeSpan
+	FromRing        string
+	ToRing          string
+}
+
+type TimeRange struct {
+	Begin common.StopwatchTime
+	End   common.StopwatchTime
+}
+
+type TicketGap struct {
+	Range    NodeIdRange
+	Interval TimeRange
+}
+
+type VoteTicket struct {
+	VoteId     NodeID
+	ExpireTime common.StopwatchTime
+	Gaps       []TicketGap
+}
+
+type GlobalLease struct {
+	Tickets  []VoteTicket
+	Delta    common.TimeSpan
+	BaseTime common.StopwatchTime
 }

@@ -66,6 +66,18 @@ func (f *messageFactory) newMessage() *Message {
 
 func (f *messageFactory) fillMessageId(message *Message) {
 	if message.Headers.Id.IsEmpty() {
-		message.Headers.Id = MessageId{f.messagePrefix, atomic.AddUint32(&f.messageIdx, 1)}
+		message.Headers.Id = f.Next()
 	}
+}
+
+func (f *messageFactory) Next() MessageId {
+	return MessageId{f.messagePrefix, atomic.AddUint32(&f.messageIdx, 1)}
+}
+
+type MessageIdGenerator interface {
+	Next() MessageId
+}
+
+func NewMessageIdGenerator() (MessageIdGenerator, error) {
+	return newMessageFactory()
 }

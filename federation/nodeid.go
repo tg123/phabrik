@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/bits"
 
 	"github.com/tg123/phabrik/serialization"
 )
@@ -15,6 +16,24 @@ type uint128 struct {
 
 var u128zero = uint128{0, 0}
 var u128max = uint128{math.MaxUint64, math.MaxUint64}
+
+// https://github.com/lukechampine/uint128/blob/0b6850b80e34429a28ab83245fa04cc6e0bab1b9/uint128.go#L104
+func (u uint128) sub(v uint128) uint128 {
+	lo, borrow := bits.Sub64(u.Lo, v.Lo, 0)
+	hi, _ := bits.Sub64(u.Hi, v.Hi, borrow)
+	return uint128{hi, lo}
+}
+
+// https://github.com/lukechampine/uint128/blob/0b6850b80e34429a28ab83245fa04cc6e0bab1b9/uint128.go#L38
+func (u uint128) cmp(v uint128) int {
+	if u == v {
+		return 0
+	} else if u.Hi < v.Hi || (u.Hi == v.Hi && u.Lo < v.Lo) {
+		return -1
+	} else {
+		return 1
+	}
+}
 
 // NodeID is an unique identifier for each node in a federacy ring
 // a NodeID is a 128 bit number, unit128_t
