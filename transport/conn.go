@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -23,9 +22,13 @@ type Config struct {
 }
 
 type Conn interface {
-	RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error)
+	SetMessageCallback(cb MessageCallback)
 
 	SendOneWay(message *Message) error
+
+	RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error)
+
+	// RequestReplyWithTable(ctx context.Context, message *Message, table *RequestTable) (*ByteArrayMessage, error)
 
 	Ping(ctx context.Context) (time.Duration, error)
 
@@ -37,7 +40,7 @@ type Conn interface {
 type connection struct {
 	messageCallback MessageCallback
 	conn            net.Conn
-	requestTable    sync.Map
+	requestTable    RequestTable
 	pinglock        sync.Mutex
 	pingCh          chan int64
 	msgfac          *messageFactory
@@ -75,19 +78,25 @@ func (c *connection) setTls() {
 	c.frameWCfg.SecurityProviderMask = securityProviderSsl
 }
 
+func (c *connection) SetMessageCallback(cb MessageCallback) {
+	c.messageCallback = cb
+}
+
 func (c *connection) Close() error {
 	err := c.conn.Close()
 
 	c.closeOnce.Do(func() {
 		close(c.pingCh)
 
-		c.requestTable.Range(func(key, value interface{}) bool {
-			if ch, ok := value.(chan *ByteArrayMessage); ok {
-				close(ch)
-			}
+		c.requestTable.Close()
 
-			return true
-		})
+		// c.requestTable.Range(func(key, value interface{}) bool {
+		// 	if ch, ok := value.(chan *ByteArrayMessage); ok {
+		// 		close(ch)
+		// 	}
+
+		// 	return true
+		// })
 	})
 
 	return err
@@ -214,19 +223,22 @@ func (c *connection) Wait() error {
 			}
 		}
 
-		if !headers.RelatesTo.IsEmpty() {
-			ch, ok := c.requestTable.LoadAndDelete(headers.RelatesTo.String())
-
-			if ok {
-				ch.(chan *ByteArrayMessage) <- msg
-			} else {
-				log.Printf("unknown reply %v", headers.RelatesTo)
-			}
-		} else {
+		if !c.requestTable.Feed(msg) {
 			if c.messageCallback != nil {
 				c.messageCallback(c, msg)
 			}
 		}
+
+		// if !headers.RelatesTo.IsEmpty() {
+		// 	ch, ok := c.requestTable.LoadAndDelete(headers.RelatesTo.String())
+
+		// 	if ok {
+		// 		ch.(chan *ByteArrayMessage) <- msg
+		// 	} else {
+		// 		log.Printf("unknown reply %v", headers.RelatesTo)
+		// 	}
+		// } else {
+		// }
 	}
 }
 
@@ -239,31 +251,49 @@ func (c *connection) SendOneWay(message *Message) error {
 }
 
 func (c *connection) RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error) {
-	if c.fatalerr != nil {
-		return nil, c.fatalerr
-	}
 	c.msgfac.fillMessageId(message)
 	message.Headers.ExpectsReply = true
-	id := message.Headers.Id.String()
-	defer c.requestTable.Delete(id)
+	pr := c.requestTable.Put(message)
+	defer pr.Close()
 
-	ch := make(chan *ByteArrayMessage)
-	c.requestTable.Store(id, ch)
-
-	err := writeMessageWithFrame(c.conn, message, c.frameWCfg)
-
-	if err != nil {
+	if err := c.SendOneWay(message); err != nil {
 		return nil, err
 	}
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case reply := <-ch:
-		if reply == nil {
-			return nil, fmt.Errorf("operation cancelled")
-		}
-		return reply, nil
-	}
-
+	return pr.Wait(ctx)
 }
+
+// func (c *connection) RequestReplyWithTable(ctx context.Context, message *Message, table *RequestTable) (*ByteArrayMessage, error) {
+// 	if c.fatalerr != nil {
+// 		return nil, c.fatalerr
+// 	}
+// 	c.msgfac.fillMessageId(message)
+
+// 	// id := message.Headers.Id.String()
+// 	// defer c.requestTable.Delete(id)
+
+// 	// ch := make(chan *ByteArrayMessage)
+// 	// c.requestTable.Store(id, ch)
+
+// 	pr := table.Put(message)
+// 	defer pr.Close()
+
+// 	err := writeMessageWithFrame(c.conn, message, c.frameWCfg)
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return pr.Wait(ctx)
+
+// 	// select {
+// 	// case <-ctx.Done():
+// 	// 	return nil, ctx.Err()
+// 	// case reply := <-ch:
+// 	// 	if reply == nil {
+// 	// 		return nil, fmt.Errorf("operation cancelled")
+// 	// 	}
+// 	// 	return reply, nil
+// 	// }
+
+// }
