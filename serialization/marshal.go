@@ -120,7 +120,7 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 		case reflect.String:
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeUInt32)
 		case reflect.Struct:
-			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeObject)
+			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeObject | FabricSerializationTypeArray)
 		default:
 			basetyp := kindToFabricSerializationType(elmTyp.Kind())
 

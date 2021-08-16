@@ -224,7 +224,7 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 	case reflect.String:
 
 		if meta != FabricSerializationTypeWString|FabricSerializationTypeArray {
-			return fmt.Errorf("expect []string got %v", meta)
+			return fmt.Errorf("expect string got %v", meta)
 		}
 
 		len, err := s.readCompressedUInt32()

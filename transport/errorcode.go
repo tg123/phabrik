@@ -1,6 +1,6 @@
 package transport
 
-type FabricErrorCode int32
+type FabricErrorCode int64
 
 // TODO import errorcodevalue.h
 const (
