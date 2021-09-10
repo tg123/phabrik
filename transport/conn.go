@@ -28,8 +28,6 @@ type Conn interface {
 
 	RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error)
 
-	// RequestReplyWithTable(ctx context.Context, message *Message, table *RequestTable) (*ByteArrayMessage, error)
-
 	Ping(ctx context.Context) (time.Duration, error)
 
 	Wait() error
@@ -87,16 +85,7 @@ func (c *connection) Close() error {
 
 	c.closeOnce.Do(func() {
 		close(c.pingCh)
-
 		c.requestTable.Close()
-
-		// c.requestTable.Range(func(key, value interface{}) bool {
-		// 	if ch, ok := value.(chan *ByteArrayMessage); ok {
-		// 		close(ch)
-		// 	}
-
-		// 	return true
-		// })
 	})
 
 	return err
@@ -228,17 +217,6 @@ func (c *connection) Wait() error {
 				c.messageCallback(c, msg)
 			}
 		}
-
-		// if !headers.RelatesTo.IsEmpty() {
-		// 	ch, ok := c.requestTable.LoadAndDelete(headers.RelatesTo.String())
-
-		// 	if ok {
-		// 		ch.(chan *ByteArrayMessage) <- msg
-		// 	} else {
-		// 		log.Printf("unknown reply %v", headers.RelatesTo)
-		// 	}
-		// } else {
-		// }
 	}
 }
 
@@ -262,38 +240,3 @@ func (c *connection) RequestReply(ctx context.Context, message *Message) (*ByteA
 
 	return pr.Wait(ctx)
 }
-
-// func (c *connection) RequestReplyWithTable(ctx context.Context, message *Message, table *RequestTable) (*ByteArrayMessage, error) {
-// 	if c.fatalerr != nil {
-// 		return nil, c.fatalerr
-// 	}
-// 	c.msgfac.fillMessageId(message)
-
-// 	// id := message.Headers.Id.String()
-// 	// defer c.requestTable.Delete(id)
-
-// 	// ch := make(chan *ByteArrayMessage)
-// 	// c.requestTable.Store(id, ch)
-
-// 	pr := table.Put(message)
-// 	defer pr.Close()
-
-// 	err := writeMessageWithFrame(c.conn, message, c.frameWCfg)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return pr.Wait(ctx)
-
-// 	// select {
-// 	// case <-ctx.Done():
-// 	// 	return nil, ctx.Err()
-// 	// case reply := <-ch:
-// 	// 	if reply == nil {
-// 	// 		return nil, fmt.Errorf("operation cancelled")
-// 	// 	}
-// 	// 	return reply, nil
-// 	// }
-
-// }

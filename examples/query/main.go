@@ -1,14 +1,19 @@
+//go:build windows
 // +build windows
+
 package main
 
 import (
+	"context"
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
+	"github.com/tg123/phabrik/common"
 	"github.com/tg123/phabrik/examples"
 	"github.com/tg123/phabrik/naming"
 	"github.com/tg123/phabrik/transport"
@@ -49,9 +54,12 @@ func main() {
 		log.Println("loop error", c.Wait())
 	}()
 
-	n := naming.NamingClient{c}
+	n, err := naming.NewNamingClient(c)
+	if err != nil {
+		panic(err)
+	}
 
-	gateway, err := n.Ping()
+	gateway, err := n.Ping(context.Background())
 
 	if err != nil {
 		panic(err)
@@ -59,11 +67,33 @@ func main() {
 
 	log.Printf("Connected, Gateway info: %v", gateway)
 
-	apps, err := n.GetApplicationList("")
+	apps, err := n.GetApplicationList(context.Background(), "")
 
 	if err != nil {
 		panic(err)
 	}
 
 	log.Println("Applications: ", apps)
+
+	n.OnServiceNotification = func(notification *naming.ServiceNotification) {
+		log.Printf("update callback %v", notification)
+	}
+
+	// TODO uri parser
+	_, err = n.RegisterFilter(context.Background(), common.Uri{
+		Type:         common.UriTypeAbsolute,
+		Scheme:       "fabric",
+		Authority:    "",
+		HostType:     common.UriHostTypeNone,
+		Host:         "",
+		Port:         -1,
+		Path:         "/test",
+		PathSegments: []string{"test"},
+	}, true, false)
+	if err != nil {
+		panic(err)
+	}
+
+	// wait for notification
+	time.Sleep(1 * time.Hour)
 }

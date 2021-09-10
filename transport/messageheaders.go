@@ -13,6 +13,8 @@ type MessageId struct {
 	Index uint32
 }
 
+type ActivityId MessageId
+
 func (m MessageId) IsEmpty() bool {
 	return m.Id.IsEmpty() && m.Index == 0
 }

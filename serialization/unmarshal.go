@@ -289,7 +289,7 @@ func (s *decodeState) value(meta FabricSerializationType, rv reflect.Value) erro
 	case reflect.Slice:
 
 		switch rv.Type().Elem().Kind() {
-		case reflect.String:
+		case reflect.String, reflect.Ptr:
 			if meta != FabricSerializationTypeUInt32 {
 				return fmt.Errorf("[]string count expect uint32 got %v", meta)
 			}

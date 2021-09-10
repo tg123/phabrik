@@ -30,3 +30,31 @@ type Uri struct {
 	Fragment     string
 	PathSegments []string
 }
+
+// func ParseUri(s string) (uri Uri, err error) {
+// 	u, err := url.Parse(s)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	fmt.Println(u.Host)
+
+// 	uri.Scheme = u.Scheme
+// 	uri.Host = u.Hostname()
+
+// 	portstr := u.Port()
+// 	if portstr != "" {
+// 		var port int64
+// 		port, err = strconv.ParseInt(portstr, 10, 32)
+// 		if err != nil {
+// 			return
+// 		}
+// 		uri.Port = int32(port)
+// 	}
+
+// 	uri.Query = u.RawQuery
+// 	uri.Path = u.RawPath
+// 	uri.Fragment = u.Fragment
+
+// 	return
+// }

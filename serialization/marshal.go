@@ -117,7 +117,7 @@ func (s *encodeState) writeEmpty(rv reflect.Value) error {
 	case reflect.Slice:
 		elmTyp := rv.Type().Elem()
 		switch elmTyp.Kind() {
-		case reflect.String:
+		case reflect.String, reflect.Ptr:
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeUInt32)
 		case reflect.Struct:
 			return s.writeTypeMeta(FabricSerializationTypeEmptyValueBit | FabricSerializationTypeObject | FabricSerializationTypeArray)
@@ -237,7 +237,7 @@ func (s *encodeState) value(rv reflect.Value) error {
 
 		elmTyp := rv.Type().Elem().Kind()
 		switch elmTyp {
-		case reflect.String:
+		case reflect.String, reflect.Ptr:
 			if err := s.writeTypeMeta(FabricSerializationTypeUInt32); err != nil {
 				return err
 			}
