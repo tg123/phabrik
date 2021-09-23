@@ -77,19 +77,12 @@ func nextFrame(r io.Reader, config frameReadConfig) (*frameheader, []byte, error
 	return &header, body, nil
 }
 
+var crc8table = crc8.MakeTable(crc8.CRC8)
+
 type frameWriteConfig struct {
 	SecurityProviderMask securityProvider
 	FrameHeaderCRC       bool
 	FrameBodyCRC         bool
-}
-
-func writeMessageWithFrame(w io.Writer, message *Message, config frameWriteConfig) error {
-	headerLen, msg, err := message.marshal()
-	if err != nil {
-		return err
-	}
-
-	return writeFrame(w, headerLen, msg, config)
 }
 
 func writeFrame(w io.Writer, headerLen int, msg []byte, config frameWriteConfig) error {
@@ -109,7 +102,7 @@ func writeFrame(w io.Writer, headerLen int, msg []byte, config frameWriteConfig)
 	}
 
 	if config.FrameHeaderCRC {
-		tcpheader.FrameHeaderCRC = crc8.Checksum(b.Bytes(), crc8.MakeTable(crc8.CRC8))
+		tcpheader.FrameHeaderCRC = crc8.Checksum(b.Bytes(), crc8table)
 	}
 
 	if config.FrameBodyCRC {

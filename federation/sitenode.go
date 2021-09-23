@@ -73,8 +73,10 @@ func NewSiteNode(config SiteNodeConfig) (*SiteNode, error) {
 	s.clientDialer = config.ClientDialer
 	if s.clientDialer == nil {
 		s.clientDialer = func(addr string) (*transport.Client, error) {
-			return transport.DialTCP(addr, transport.Config{
-				TLS: config.ClientTLS,
+			return transport.DialTCP(addr, transport.ClientConfig{
+				Config: transport.Config{
+					TLS: config.ClientTLS,
+				},
 			})
 		}
 	}

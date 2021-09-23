@@ -3,18 +3,21 @@ package transport
 import (
 	"log"
 	"net"
-
-	"github.com/tg123/phabrik/serialization"
 )
 
 type Server struct {
 	listener        net.Listener
 	messageCallback MessageCallback
-	config          Config
+	config          ServerConfig
 }
 
-func ListenTCP(laddr string, config Config) (*Server, error) {
-	l, err := net.Listen("tcp", laddr)
+type ServerConfig struct {
+	Config
+	MessageCallback MessageCallback
+}
+
+func ListenTCP(addr string, config ServerConfig) (*Server, error) {
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +25,7 @@ func ListenTCP(laddr string, config Config) (*Server, error) {
 	return Listen(l, config)
 }
 
-func Listen(l net.Listener, config Config) (*Server, error) {
+func Listen(l net.Listener, config ServerConfig) (*Server, error) {
 	return &Server{
 		listener:        l,
 		messageCallback: config.MessageCallback,
@@ -43,38 +46,12 @@ func (s *Server) onMessage(conn Conn, msg *ByteArrayMessage) {
 func (s *Server) handle(conn net.Conn) error {
 	defer conn.Close()
 
-	c, err := newConnection()
+	c, err := tapAcceptedConn(conn, s.config.Config, nil)
 	if err != nil {
 		return err
 	}
 
 	c.messageCallback = s.onMessage
-
-	if s.config.TLS != nil {
-		tlsconn, err := createTlsServerConn(conn, c.msgfac, s.config.TLS)
-		if err != nil {
-			return err
-		}
-
-		c.setTls()
-		c.conn = tlsconn
-	} else {
-		c.conn = conn
-	}
-
-	nonce, err := serialization.NewGuidV4()
-	if err != nil {
-		return err
-	}
-
-	if err := c.sendTransportInit(&transportInitMessageBody{
-		Address:                conn.LocalAddr().String(),
-		Nonce:                  nonce,
-		HeartbeatSupported:     true,
-		ConnectionFeatureFlags: 1,
-	}); err != nil {
-		return err
-	}
 
 	return c.Wait()
 }

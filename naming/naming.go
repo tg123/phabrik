@@ -37,7 +37,7 @@ func (a ActivityId) String() string {
 // 	})
 // }
 
-func newNamingMessage(action string) (*transport.Message, error) {
+func NewNamingMessage(action string) (*transport.Message, error) {
 	activityId, err := serialization.NewGuidV4()
 
 	if err != nil {
@@ -153,7 +153,7 @@ func (n *NamingClient) onMessage(conn transport.Conn, bam *transport.ByteArrayMe
 			log.Printf("ServiceNotificationRequest unmarshal err %v", err)
 		}
 
-		reply, err := newNamingMessage("ServiceNotificationReply")
+		reply, err := NewNamingMessage("ServiceNotificationReply")
 		if err != nil {
 			log.Printf("ServiceNotificationRequest NewNamingMessage err %v", err)
 		}
@@ -197,7 +197,7 @@ func (n *NamingClient) requestReply(ctx context.Context, msg *transport.Message)
 }
 
 func (n *NamingClient) Ping(ctx context.Context) (*GatewayDescription, error) {
-	msg, err := newNamingMessage("PingRequest")
+	msg, err := NewNamingMessage("PingRequest")
 
 	if err != nil {
 		return nil, err
@@ -282,7 +282,7 @@ func (n *NamingClient) RegisterFilter(ctx context.Context, name common.Uri, matc
 	}
 
 	{
-		msg, err := newNamingMessage("NotificationClientConnectionRequest")
+		msg, err := NewNamingMessage("NotificationClientConnectionRequest")
 		if err != nil {
 			return 0, err
 		}
@@ -299,7 +299,7 @@ func (n *NamingClient) RegisterFilter(ctx context.Context, name common.Uri, matc
 	}
 
 	{
-		msg, err := newNamingMessage("RegisterServiceNotificationFilterRequest")
+		msg, err := NewNamingMessage("RegisterServiceNotificationFilterRequest")
 		if err != nil {
 			return 0, err
 		}
@@ -341,7 +341,7 @@ type ApplicationQueryResult struct {
 
 func (n *NamingClient) GetApplicationList(ctx context.Context, filter string) ([]ApplicationQueryResult, error) {
 
-	msg, err := newNamingMessage("QueryRequest")
+	msg, err := NewNamingMessage("QueryRequest")
 	if err != nil {
 		return nil, err
 	}

@@ -17,12 +17,15 @@ type fabricSecureConn struct {
 	frameWCfg          frameWriteConfig
 }
 
-func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config, factory func(conn net.Conn, config *tls.Config) *tls.Conn) (*tls.Conn, error) {
+func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config, factory func(conn net.Conn, config *tls.Config) *tls.Conn, initbuf []byte) (*tls.Conn, error) {
 	rawtls := &fabricSecureConn{
 		rawconn: conn,
 		mf:      mf,
 	}
 	rawtls.frameWCfg.SecurityProviderMask = securityProviderSsl
+	if initbuf != nil {
+		rawtls.rbuf.Write(initbuf)
+	}
 	tlsconn := factory(rawtls, tlsconf)
 
 	if err := tlsconn.Handshake(); err != nil {
@@ -35,11 +38,11 @@ func createTlsConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config, facto
 }
 
 func createTlsClientConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
-	return createTlsConn(conn, mf, tlsconf, tls.Client)
+	return createTlsConn(conn, mf, tlsconf, tls.Client, nil)
 }
 
-func createTlsServerConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config) (*tls.Conn, error) {
-	return createTlsConn(conn, mf, tlsconf, tls.Server)
+func createTlsServerConn(conn net.Conn, mf *messageFactory, tlsconf *tls.Config, initbuf []byte) (*tls.Conn, error) {
+	return createTlsConn(conn, mf, tlsconf, tls.Server, initbuf)
 }
 
 func (c *fabricSecureConn) handshakeComplete() bool {
@@ -54,12 +57,12 @@ func (c *fabricSecureConn) Read(b []byte) (n int, err error) {
 	if c.rbuf.Len() > 0 {
 		return c.rbuf.Read(b)
 	} else if !c.handshakeComplete() {
-		tcpheader, tcpbody, err := nextFrame(c.rawconn, c.frameRCfg)
+		_, body, err := nextMessageHeaderAndBodyFromFrame(c.rawconn, c.frameRCfg)
 		if err != nil {
 			return 0, err
 		}
 
-		if _, err := c.rbuf.Write(tcpbody[tcpheader.HeaderLength:]); err != nil {
+		if _, err := c.rbuf.Write(body); err != nil {
 			return 0, err
 		}
 

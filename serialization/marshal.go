@@ -234,6 +234,10 @@ func (s *encodeState) value(rv reflect.Value) error {
 			return err
 		}
 	case reflect.Slice:
+		len := rv.Len()
+		if len == 0 {
+			return s.writeEmpty(rv)
+		}
 
 		elmTyp := rv.Type().Elem().Kind()
 		switch elmTyp {
@@ -252,7 +256,7 @@ func (s *encodeState) value(rv reflect.Value) error {
 			}
 		}
 
-		if err := s.writeCompressedUint32(uint32(rv.Len())); err != nil {
+		if err := s.writeCompressedUint32(uint32(len)); err != nil {
 			return err
 		}
 

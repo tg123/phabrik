@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package main
@@ -10,7 +11,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/tg123/phabrik/common"
 	"github.com/tg123/phabrik/examples"
+	"github.com/tg123/phabrik/federation"
 	"github.com/tg123/phabrik/naming"
 	"github.com/tg123/phabrik/serialization"
 	"github.com/tg123/phabrik/transport"
@@ -37,8 +40,10 @@ func main() {
 		},
 	}
 
-	s, err := transport.ListenTCP(os.Args[1], transport.Config{
-		TLS: tlsconf,
+	s, err := transport.ListenTCP(os.Args[1], transport.ServerConfig{
+		Config: transport.Config{
+			TLS: tlsconf,
+		},
 		MessageCallback: func(c transport.Conn, bam *transport.ByteArrayMessage) {
 			switch bam.Headers.Actor {
 			case transport.MessageActorTypeNamingGateway:
@@ -58,8 +63,8 @@ func main() {
 					}{
 						GatewayDescription: naming.GatewayDescription{
 							Address: "127.0.0.1:9998",
-							NodeInstance: naming.NodeInstance{
-								Id:         naming.NodeIDFromMD5("NodeName"),
+							NodeInstance: federation.NodeInstance{
+								Id:         federation.NodeIDFromMD5("NodeName"),
 								InstanceId: 1000,
 							},
 							NodeName: "NodeName",
@@ -72,7 +77,7 @@ func main() {
 					}
 
 				case "NameExistsRequest":
-					var uri naming.Uri
+					var uri common.Uri
 					if err := serialization.Unmarshal(bam.Body, &uri); err != nil {
 						log.Printf("NameExistsRequest body err %v", err)
 						return

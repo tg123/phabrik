@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -15,22 +14,19 @@ import (
 type MessageCallback func(Conn, *ByteArrayMessage)
 
 type Config struct {
-	MessageCallback MessageCallback
-	TLS             *tls.Config
-	FrameHeaderCRC  bool
-	FrameBodyCRC    bool
+	TLS                           *tls.Config
+	DisableCheckFrameHeaderCRC    bool
+	DisableGenerateFrameHeaderCRC bool
+	CheckFrameBodyCRC             bool
+	GenerateFrameBodyCRC          bool
 }
 
 type Conn interface {
-	SetMessageCallback(cb MessageCallback)
-
 	SendOneWay(message *Message) error
 
 	RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error)
 
 	Ping(ctx context.Context) (time.Duration, error)
-
-	Wait() error
 
 	Close() error
 }
@@ -50,7 +46,7 @@ type connection struct {
 	fatalerr  error
 }
 
-func newConnection() (*connection, error) {
+func newConnection(config Config) (*connection, error) {
 	mf, err := newMessageFactory()
 	if err != nil {
 		return nil, err
@@ -62,8 +58,60 @@ func newConnection() (*connection, error) {
 	}
 
 	c.frameWCfg.SecurityProviderMask = securityProviderNone
-	c.frameRCfg.CheckFrameHeaderCRC = true
-	c.frameWCfg.FrameHeaderCRC = true
+	c.frameRCfg.CheckFrameHeaderCRC = !config.DisableCheckFrameHeaderCRC
+	c.frameWCfg.FrameHeaderCRC = !config.DisableGenerateFrameHeaderCRC
+	c.frameRCfg.CheckFrameBodyCRC = config.CheckFrameBodyCRC
+	c.frameWCfg.FrameBodyCRC = config.GenerateFrameBodyCRC
+
+	return c, nil
+}
+
+func tapAcceptedConn(conn net.Conn, config Config, initbuf []byte) (*connection, error) {
+	c, err := newConnection(config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.TLS != nil {
+		tlsconn, err := createTlsServerConn(conn, c.msgfac, config.TLS, initbuf)
+		if err != nil {
+			return nil, err
+		}
+
+		c.setTls()
+		c.conn = tlsconn
+	} else {
+		c.conn = conn
+	}
+
+	if err := c.sendTransportInit(conn); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func tapClientConn(conn net.Conn, config Config) (*connection, error) {
+	c, err := newConnection(config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.TLS != nil {
+		tlsconn, err := createTlsClientConn(conn, c.msgfac, config.TLS)
+		if err != nil {
+			return nil, err
+		}
+
+		c.setTls()
+		c.conn = tlsconn
+	} else {
+		c.conn = conn
+	}
+
+	if err := c.sendTransportInit(nil); err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }
@@ -159,34 +207,50 @@ type transportInitMessageBody struct {
 	ConnectionFeatureFlags uint32
 }
 
-func (c *connection) sendTransportInit(b *transportInitMessageBody) error {
+func (c *connection) sendTransportInit(conn net.Conn) error {
+	nonce, err := serialization.NewGuidV4()
+	if err != nil {
+		return err
+	}
+
+	addr := ""
+	if conn != nil {
+		addr = conn.LocalAddr().String()
+	}
+
 	msg := c.msgfac.newMessage()
 	msg.Headers.Actor = MessageActorTypeTransport
 	msg.Headers.HighPriority = true
-	msg.Body = b
-	err := c.SendOneWay(msg)
-	if err != nil {
+	msg.Body = &transportInitMessageBody{
+		Address:                addr,
+		Nonce:                  nonce,
+		HeartbeatSupported:     true,
+		ConnectionFeatureFlags: 1,
+	}
+
+	if err := c.SendOneWay(msg); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (c *connection) writeMessageWithFrame(message *Message) error {
+	return writeMessageWithFrame(c.conn, message, c.frameWCfg)
+}
+
+func (c *connection) nextMessageHeaderAndBodyFromFrame() (*MessageHeaders, []byte, error) {
+	return nextMessageHeaderAndBodyFromFrame(c.conn, c.frameRCfg)
+}
+
 func (c *connection) Wait() error {
 	defer c.Close()
 
 	for {
-		frameheader, framebody, err := nextFrame(c.conn, c.frameRCfg)
+		headers, body, err := c.nextMessageHeaderAndBodyFromFrame()
 		if err != nil {
 			return err
 		}
-
-		headers, err := parseFabricMessageHeaders(bytes.NewBuffer(framebody[:frameheader.HeaderLength]))
-		if err != nil {
-			return err
-		}
-
-		body := framebody[frameheader.HeaderLength:]
 
 		msg := &ByteArrayMessage{
 			Headers: *headers,
@@ -225,7 +289,7 @@ func (c *connection) SendOneWay(message *Message) error {
 		return c.fatalerr
 	}
 	c.msgfac.fillMessageId(message)
-	return writeMessageWithFrame(c.conn, message, c.frameWCfg)
+	return c.writeMessageWithFrame(message)
 }
 
 func (c *connection) RequestReply(ctx context.Context, message *Message) (*ByteArrayMessage, error) {

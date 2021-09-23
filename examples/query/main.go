@@ -40,8 +40,10 @@ func main() {
 		},
 	}
 
-	c, err := transport.DialTCP(os.Args[1], transport.Config{
-		TLS: tlsconf,
+	c, err := transport.DialTCP(os.Args[1], transport.ClientConfig{
+		Config: transport.Config{
+			TLS: tlsconf,
+		},
 	})
 
 	if err != nil {

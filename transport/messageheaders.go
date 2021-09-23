@@ -208,13 +208,17 @@ func (h *MessageHeaders) writeTo(w io.Writer) error {
 }
 
 func writeMessageHeader(w io.Writer, id MessageHeaderIdType, headerbody interface{}) error {
+	var err error
 	if err := binary.Write(w, binary.LittleEndian, id); err != nil {
 		return err
 	}
 
-	b, err := serialization.Marshal(headerbody)
-	if err != nil {
-		return err
+	b, ok := headerbody.([]byte)
+	if !ok {
+		b, err = serialization.Marshal(headerbody)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := binary.Write(w, binary.LittleEndian, uint16(len(b))); err != nil {
@@ -361,6 +365,8 @@ func parseFabricMessageHeaders(r io.Reader) (*MessageHeaders, error) {
 				}
 
 				headers.customHeaders[id] = append(headers.customHeaders[id], hv)
+			} else {
+				headers.customHeaders[id] = append(headers.customHeaders[id], headerdata)
 			}
 		}
 	}

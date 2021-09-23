@@ -2,6 +2,7 @@ package transport
 
 import (
 	"bytes"
+	"io"
 	"sync/atomic"
 
 	"github.com/tg123/phabrik/serialization"
@@ -28,9 +29,13 @@ func (m *Message) marshal() (int, []byte, error) {
 	headerLen := buf.Len()
 
 	if m.Body != nil {
-		b, err := serialization.Marshal(m.Body)
-		if err != nil {
-			return 0, nil, err
+		b, ok := m.Body.([]byte)
+
+		if !ok {
+			b, err = serialization.Marshal(m.Body)
+			if err != nil {
+				return 0, nil, err
+			}
 		}
 
 		_, err = buf.Write(b)
@@ -40,6 +45,30 @@ func (m *Message) marshal() (int, []byte, error) {
 	}
 
 	return headerLen, buf.Bytes(), nil
+}
+
+func writeMessageWithFrame(w io.Writer, message *Message, config frameWriteConfig) error {
+	headerLen, msg, err := message.marshal()
+	if err != nil {
+		return err
+	}
+
+	return writeFrame(w, headerLen, msg, config)
+}
+
+func nextMessageHeaderAndBodyFromFrame(r io.Reader, config frameReadConfig) (*MessageHeaders, []byte, error) {
+	frameheader, framebody, err := nextFrame(r, config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	headers, err := parseFabricMessageHeaders(bytes.NewBuffer(framebody[:frameheader.HeaderLength]))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	body := framebody[frameheader.HeaderLength:]
+	return headers, body, nil
 }
 
 type messageFactory struct {

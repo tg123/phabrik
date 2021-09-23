@@ -11,7 +11,7 @@ import (
 )
 
 func TestBasicServer(t *testing.T) {
-	server, err := ListenTCP("127.0.0.1:0", Config{
+	server, err := ListenTCP("127.0.0.1:0", ServerConfig{
 		MessageCallback: func(c Conn, bam *ByteArrayMessage) {
 			msg := &Message{}
 			msg.Headers.RelatesTo = bam.Headers.Id
@@ -31,7 +31,7 @@ func TestBasicServer(t *testing.T) {
 	go server.Serve()
 
 	t.Run("request reply", func(t *testing.T) {
-		client, err := DialTCP(server.listener.Addr().String(), Config{})
+		client, err := DialTCP(server.listener.Addr().String(), ClientConfig{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +51,7 @@ func TestBasicServer(t *testing.T) {
 	})
 
 	t.Run("connect again", func(t *testing.T) {
-		client, err := DialTCP(server.listener.Addr().String(), Config{})
+		client, err := DialTCP(server.listener.Addr().String(), ClientConfig{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,15 +97,17 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	serverCertCallback := false
 	clientCertCallback := false
 
-	s, err := ListenTCP("127.0.0.1:0", Config{
-		TLS: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			ClientAuth:   tls.RequestClientCert,
-			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				assert.Equal(t, cert.Certificate, rawCerts)
-				serverCertCallback = true
+	s, err := ListenTCP("127.0.0.1:0", ServerConfig{
+		Config: Config{
+			TLS: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				ClientAuth:   tls.RequestClientCert,
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					assert.Equal(t, cert.Certificate, rawCerts)
+					serverCertCallback = true
 
-				return nil
+					return nil
+				},
 			},
 		},
 		MessageCallback: func(c Conn, bam *ByteArrayMessage) {
@@ -134,14 +136,16 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	go s.Serve()
 
 	{
-		c, err := DialTCP(s.listener.Addr().String(), Config{
-			TLS: &tls.Config{
-				InsecureSkipVerify: true,
-				Certificates:       []tls.Certificate{cert},
-				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					assert.Equal(t, cert.Certificate, rawCerts)
-					clientCertCallback = true
-					return nil
+		c, err := DialTCP(s.listener.Addr().String(), ClientConfig{
+			Config: Config{
+				TLS: &tls.Config{
+					InsecureSkipVerify: true,
+					Certificates:       []tls.Certificate{cert},
+					VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+						assert.Equal(t, cert.Certificate, rawCerts)
+						clientCertCallback = true
+						return nil
+					},
 				},
 			},
 		})

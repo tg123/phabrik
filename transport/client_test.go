@@ -39,7 +39,7 @@ func netPipe() (net.Conn, net.Conn, error) {
 }
 
 func mustTestConnection(t *testing.T, conn net.Conn) *connection {
-	c, err := newConnection()
+	c, err := newConnection(Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestRequestMessage(t *testing.T) {
 	defer p1.Close()
 	defer p2.Close()
 
-	c, err := Connect(p1, Config{})
+	c, err := Connect(p1, ClientConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestRequestMessage(t *testing.T) {
 	go c.Wait()
 
 	// fake server by just handler
-	s, err := Connect(p2, Config{
+	s, err := Connect(p2, ClientConfig{
 		MessageCallback: func(client Conn, bam *ByteArrayMessage) {
 			if bam.Headers.Actor != MessageActorTypeGenericTestActor {
 				return
@@ -326,14 +326,14 @@ func TestTransportMessages(t *testing.T) {
 	defer p1.Close()
 	defer p2.Close()
 
-	c1i, err := Connect(p1, Config{})
+	c1i, err := Connect(p1, ClientConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go c1i.Wait()
 
-	c1 := c1i.Conn.(*connection)
+	c1 := c1i.connection
 
 	t.Run("check init msg", func(t *testing.T) {
 
@@ -429,7 +429,7 @@ func TestTransportMessages(t *testing.T) {
 	})
 
 	t.Run("heartbeat duration", func(t *testing.T) {
-		c2, err := Connect(p2, Config{})
+		c2, err := Connect(p2, ClientConfig{})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -5,10 +5,15 @@ import (
 )
 
 type Client struct {
-	Conn
+	*connection
 }
 
-func DialTCP(addr string, config Config) (*Client, error) {
+type ClientConfig struct {
+	Config
+	MessageCallback MessageCallback
+}
+
+func DialTCP(addr string, config ClientConfig) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 
 	if err != nil {
@@ -18,35 +23,15 @@ func DialTCP(addr string, config Config) (*Client, error) {
 	return Connect(conn, config)
 }
 
-func Connect(conn net.Conn, config Config) (*Client, error) {
-
-	c, err := newConnection()
+func Connect(conn net.Conn, config ClientConfig) (*Client, error) {
+	c, err := tapClientConn(conn, config.Config)
 	if err != nil {
 		return nil, err
 	}
 
 	c.messageCallback = config.MessageCallback
 
-	if config.TLS != nil {
-		tlsconn, err := createTlsClientConn(conn, c.msgfac, config.TLS)
-		if err != nil {
-			return nil, err
-		}
-
-		c.setTls()
-		c.conn = tlsconn
-	} else {
-		c.conn = conn
-	}
-
-	if err := c.sendTransportInit(&transportInitMessageBody{
-		HeartbeatSupported:     true,
-		ConnectionFeatureFlags: 1,
-	}); err != nil {
-		return nil, err
-	}
-
 	return &Client{
-		Conn: c,
+		connection: c,
 	}, nil
 }
