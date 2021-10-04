@@ -625,6 +625,16 @@ func (n *NamingClient) GetServicePartitionList(ctx context.Context, serviceName 
 		return nil, err
 	}
 
+	if reply.Headers.Action == "ClientOperationFailure" {
+		var b struct {
+			ErrorCode int64
+		}
+		if err := serialization.Unmarshal(reply.Body, &b); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("GetServicePartitionList returns hr %v", b.ErrorCode)
+	}
+
 	body := reply.Body
 	var b struct {
 		ResultKind FabriQueryResultKind
