@@ -1,5 +1,9 @@
 package common
 
+import (
+	"fmt"
+)
+
 type UriType int64
 
 const (
@@ -29,6 +33,12 @@ type Uri struct {
 	Query        string
 	Fragment     string
 	PathSegments []string
+}
+
+func (u Uri) String() string {
+	return fmt.Sprintf(
+		"%s:%s",
+		u.Scheme, u.Path)
 }
 
 // func ParseUri(s string) (uri Uri, err error) {
