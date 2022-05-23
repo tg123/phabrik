@@ -297,11 +297,11 @@ func (s *leaseSession) Ping(ctx context.Context) error {
 				s.connected = false
 				s.objLock.Unlock()
 
-				if err = s.reconnect(); err != nil {
-					return err
-				}
+				// if err = s.reconnect(); err != nil {
+				// 	return err
+				// }
 
-				return s.Ping(ctx)
+				// return s.Ping(ctx)
 			}
 		}
 		return err
