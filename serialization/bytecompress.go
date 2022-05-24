@@ -10,10 +10,8 @@ const (
 	valueCompressMaskNegative = 0x40 /*0b 0100 0000 */
 )
 
-// TODO find a way to merge signed and unsigned
-
-func (s *decodeState) readCompressedSigned(size int) (int64, error) {
-	var value int64
+func readCompressed[T int64 | uint64](s *decodeState, size int) (T, error) {
+	var value T
 
 	byteValue, err := s.inner.ReadByte()
 	if err != nil {
@@ -30,7 +28,7 @@ func (s *decodeState) readCompressedSigned(size int) (int64, error) {
 		b := byteValue & valueCompressMask7Bit
 
 		value <<= 7
-		value |= int64(b)
+		value |= T(b)
 
 		if byteValue&valueCompressMaskMoredata == 0 {
 			break
@@ -49,40 +47,7 @@ func (s *decodeState) readCompressedSigned(size int) (int64, error) {
 	return value, nil
 }
 
-func (s *decodeState) readCompressedUnsigned(size int) (uint64, error) {
-	var value uint64
-
-	byteValue, err := s.inner.ReadByte()
-	if err != nil {
-		return 0, err
-	}
-
-	maxSize := ((size*8 + 6) / 7)
-
-	for readSize := 1; readSize <= maxSize; readSize++ {
-		b := byteValue & valueCompressMask7Bit
-
-		value <<= 7
-		value |= uint64(b)
-
-		if byteValue&valueCompressMaskMoredata == 0 {
-			break
-		}
-
-		if readSize == maxSize {
-			return 0, fmt.Errorf("format err 0")
-		}
-
-		byteValue, err = s.inner.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	return value, nil
-}
-
-func (s *encodeState) writeCompressedSigned(size int, value int64) error {
+func writeCompressed[T int64 | uint64](s *encodeState, size int, value T) error {
 	if value == 0 {
 		return nil
 	}
@@ -91,7 +56,7 @@ func (s *encodeState) writeCompressedSigned(size int, value int64) error {
 	buffer := make([]byte, size)
 	index := size - 1
 
-	var target int64
+	var target T
 	if value < 0 {
 		target = ^target
 	}
@@ -122,39 +87,18 @@ func (s *encodeState) writeCompressedSigned(size int, value int64) error {
 	return err
 }
 
+func (s *decodeState) readCompressedSigned(size int) (int64, error) {
+	return readCompressed[int64](s, size)
+}
+
+func (s *decodeState) readCompressedUnsigned(size int) (uint64, error) {
+	return readCompressed[uint64](s, size)
+}
+
+func (s *encodeState) writeCompressedSigned(size int, value int64) error {
+	return writeCompressed(s, size, value)
+}
+
 func (s *encodeState) writeCompressedUnsigned(size int, value uint64) error {
-	if value == 0 {
-		return nil
-	}
-
-	size = ((size*8 + 6) / 7)
-	buffer := make([]byte, size)
-	index := size - 1
-
-	var target uint64
-
-	temp := value
-	isFirst := true
-
-	for {
-		b := byte(valueCompressMask7Bit & temp) // grab
-		if !isFirst {
-			b |= valueCompressMaskMoredata
-		}
-
-		buffer[index] = b
-
-		isFirst = false
-		index--
-
-		temp >>= 7
-
-		//done for unsigned value, or unsigned value if sign bit has been compressed.
-		if temp == target {
-			break
-		}
-	}
-
-	_, err := s.buf.Write(buffer[index+1:])
-	return err
+	return writeCompressed(s, size, value)
 }
